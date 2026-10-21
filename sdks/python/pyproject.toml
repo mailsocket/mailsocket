@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mailsocket"
+version = "0.3.1"
+description = "Official Python client for the mailsocket REST API — one line to wait for an OTP."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "mailsocket" }]
+keywords = ["mailsocket", "email", "otp", "inbox", "magic-link"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Email",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://mailsocket.app"
+Documentation = "https://dash.mailsocket.app/docs"
+Source = "https://github.com/mailsocket/mailsocket-sdk/tree/main/python"
+Issues = "https://github.com/mailsocket/mailsocket-sdk/issues"
+
+[tool.setuptools]
+packages = ["mailsocket"]
+
+[tool.setuptools.package-data]
+mailsocket = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

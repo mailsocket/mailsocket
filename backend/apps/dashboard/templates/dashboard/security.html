@@ -1,0 +1,63 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}How mailsocket stores, protects and deletes the mail it receives: hosting, encryption, retention, subprocessors and how to report a vulnerability.{% endblock %}
+{% block eyebrow %}Security{% endblock %}
+{% block h1 %}Security{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">What happens to the mail and keys you send us, where it runs, and how to report a problem.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="hosting">
+  <h2>Hosting</h2>
+  <p>mailsocket runs on servers operated by Hetzner Online in Germany (EU). The website, dashboard and API are served through Cloudflare. Inbound mail for <code>{{ mail_domain }}</code> is received directly by our own mail server.</p>
+</section>
+
+<section class="docs-section" id="encryption">
+  <h2>Encryption</h2>
+  <ul class="docs-steps">
+    <li>The website, dashboard and API are served only over HTTPS (TLS), with HSTS. Plain HTTP requests are redirected.</li>
+    <li>Webhooks are delivered only to HTTPS URLs and are signed with HMAC-SHA256 so you can verify they came from us.</li>
+    <li>Inbound SMTP does not require TLS, so mail can arrive at our server unencrypted, as with most receiving mail servers. Do not send anything to an inbox you would not put in an ordinary email.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="data">
+  <h2>Data handling</h2>
+  <ul class="docs-steps">
+    <li><strong>Mail.</strong> Each message is stored, then parsed for the OTP and magic link. We store the raw message so it can be reprocessed if parsing fails. Mail is never sold, shared or used to train models.</li>
+    <li><strong>API keys.</strong> Stored as a keyed hash (HMAC-SHA256); the full key is shown once, when you create it. Keys can be revoked at any time and can carry an expiry date.</li>
+    <li><strong>Access.</strong> Inboxes and messages are visible only to API keys and dashboard users of the account that owns them. An id that belongs to another account returns <code>404</code>, the same as an id that does not exist.</li>
+    <li><strong>Magic links.</strong> We extract links; we never open or follow them.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="retention">
+  <h2>Retention and deletion</h2>
+  <ul class="docs-steps">
+    <li>Messages are deleted after your plan's retention window: {% for tier in retention_tiers %}{{ tier.retention_display }} on {{ tier.name }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}. A scheduled job runs every hour.</li>
+    <li>Database backups are kept for up to 14 days, so deleted data leaves backups within 14 days.</li>
+    <li>If our application is unavailable, the mail server holds incoming mail in its queue and retries delivery for up to 5 days.</li>
+    <li>Deleting your account from <a href="{{ DASH_ORIGIN }}{% url 'dashboard:settings' %}">Settings</a> permanently erases the account, its inboxes and messages.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="subprocessors">
+  <h2>Subprocessors</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>Provider</th><th>Purpose</th><th>Location</th></tr></thead>
+      <tbody>
+        <tr><td>Hetzner Online GmbH</td><td>Servers that run the application, database and mail server.</td><td>Germany</td></tr>
+        <tr><td>Cloudflare, Inc.</td><td>DNS, TLS termination and proxying for the website and API, privacy-friendly web analytics, and forwarding of mail sent to our own addresses.</td><td>Global</td></tr>
+        <tr><td>Lemon Squeezy</td><td>Payments and subscription billing (merchant of record). We never see your card number.</td><td>United States</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="disclosure">
+  <h2>Reporting a vulnerability</h2>
+  <p>Email <a href="mailto:security@mailsocket.app">security@mailsocket.app</a> with a description, steps to reproduce and the affected URL or endpoint. We will confirm receipt and keep you updated until it is fixed.</p>
+  <p>Please test only against accounts and inboxes you own, do not access or modify other users' data, and give us reasonable time to fix an issue before disclosing it. We will not take legal action against good-faith research that follows these rules. Our <a href="{% url 'dashboard:security-txt' %}">security.txt</a> has the same contact.</p>
+  <p>Current availability and past incidents are on our <a href="{% url 'status:page' %}">status page</a>.</p>
+  <p>Abuse of an inbox address (spam, phishing) goes to <a href="mailto:abuse@inboxpipe.net">abuse@inboxpipe.net</a>. Privacy requests go to <a href="mailto:privacy@mailsocket.app">privacy@mailsocket.app</a>.</p>
+</section>
+{% endblock %}

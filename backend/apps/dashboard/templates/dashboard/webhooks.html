@@ -1,0 +1,8 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Webhooks · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Webhooks</h1><p>Deliver parsed email events to public HTTPS endpoints.</p></div></header>
+{% if not can_configure %}<section class="card upsell" id="webhooks-upsell"><p>Webhooks are on {{ webhook_plan_name }} and above. Existing webhooks can still be disabled and inspected. <a class="button secondary" href="{{ UPGRADE_URL }}">Upgrade</a></p></section>{% endif %}
+<section id="webhook-result" aria-live="polite">{% if secret %}<div class="card flash" role="status"><strong>{{ flash }} Copy this signing secret now. It will not be shown again.</strong><p><code id="created-webhook-secret">{{ secret }}</code> <button type="button" class="copy" data-copy-target="created-webhook-secret">Copy</button></p></div>{% endif %}</section>
+<section id="webhook-rows">{% include 'dashboard/partials/webhook_rows.html' %}</section>
+{% endblock %}

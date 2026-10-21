@@ -1,0 +1,28 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <title>Sign out · mailsocket</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card auth-msg">
+    <div class="auth-brand">{% include "dashboard/partials/_brand.html" with brand_origin=APEX_ORIGIN %}</div>
+    <h1>Sign out?</h1>
+    <p class="big">You are signed in{% if request.user.email %} as <!--email_off-->{{ request.user.email }}<!--/email_off-->{% endif %}.</p>
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}<button type="submit" class="button auth-submit">Sign out</button>
+    </form>
+    <div class="auth-links">
+      <a href="{% url 'dashboard:overview' %}">Back to dashboard</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

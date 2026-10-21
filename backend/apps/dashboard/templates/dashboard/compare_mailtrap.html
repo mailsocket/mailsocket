@@ -1,0 +1,52 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}mailsocket vs Mailtrap: prices and features side by side, including where Mailtrap is the better choice, with sources.{% endblock %}
+{% block eyebrow %}Compare{% endblock %}
+{% block h1 %}mailsocket vs Mailtrap{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Mailtrap's agent inbox gives an AI agent full two-way email: receive, reply in-thread and manage conversations. mailsocket is narrower: inboxes that receive mail and hand you the OTP or magic link as a field.</p>{% endblock %}
+
+{% block content %}
+{% include "dashboard/partials/_compare_checked.html" %}
+
+<section class="docs-section" id="table">
+  <h2>Side by side</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>&nbsp;</th><th>Mailtrap</th><th>mailsocket</th></tr></thead>
+      <tbody>
+        <tr><td>Free plan</td><td>✅ 4,000 emails/month (<a href="{{ src.pricing_html }}" rel="noopener">source</a>), 1 domain (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>✅ {{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}, {{ ms.free.retention_display }} retention</td></tr>
+        <tr><td>Entry price</td><td>Basic $15/month: 10,000 emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>
+        <tr><td>Custom domains</td><td>✅ Hosted or custom-domain inboxes (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>); Free plan allows 1 sending domain (<a href="{{ src.pricing_html }}" rel="noopener">source</a>)</td><td>{% if ms.domains_plan %}✅ From the {{ ms.domains_plan.name }} plan ({{ ms.domains_plan.price }}){% else %}❌ No{% endif %}</td></tr>
+        <tr><td>OTP and magic link extracted to their own fields</td><td>Not listed in its features; every message is parsed to generic JSON (sender, subject, text, html, attachments) for you to read yourself (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>)</td><td>✅ Yes, with a confidence score, every plan</td></tr>
+        <tr><td>One call that waits for the code</td><td>Not listed in its features; new mail arrives over a webhook instead (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>)</td><td>✅ <code>messages/wait</code>, up to {{ ms.wait_max }}s per call, every plan</td></tr>
+        <tr><td>Webhook on new mail</td><td>✅ Real-time webhook with event IDs and metadata; full message fetched from the Messages API (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>)</td><td>{% if ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>MCP server</td><td>✅ Mailtrap MCP Server (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>)</td><td>✅ Hosted and local, API key only</td></tr>
+        <tr><td>Reply to inbound email</td><td>✅ Reply in-thread with one API call; capped at 20 replies total on a Mailtrap-hosted inbox, uncapped on a custom domain (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>)</td><td>❌ No, receive only</td></tr>
+        <tr><td>Conversation threading</td><td>✅ Replies are grouped into one conversation (<a href="{{ src.agent_inbox }}" rel="noopener">source</a>)</td><td>❌ No, each message stands alone</td></tr>
+        <tr><td>How widely used</td><td>✅ About 221,000 npm downloads of its SDK in the 30 days to 4 October 2026 (<a href="{{ src.downloads }}" rel="noopener">source</a>)</td><td>A new service with a small user base</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="choose-them">
+  <h2>When to choose Mailtrap</h2>
+  <ul class="docs-steps">
+    <li>Your agent needs to hold conversations: receive, reply in-thread and manage attachments, not only receive.</li>
+    <li>You want a hosted inbox to start immediately, with the option to move to a custom domain for production.</li>
+    <li>You want new mail pushed to your backend over a webhook, with the full message fetched from an API.</li>
+    <li>You want a larger free message allowance each month, or a wider existing user base.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="choose-mailsocket">
+  <h2>When to choose mailsocket</h2>
+  <ul class="docs-steps">
+    <li>The job is getting past a verification step: you want the OTP or magic link as a field, not an email to parse yourself.</li>
+    <li>You want one call that blocks until the code arrives, with no webhook receiver to run.</li>
+    <li>You write end-to-end tests (pytest, Cypress, Playwright, CI) as well as agents, and want one inbox per test.</li>
+    <li>You want a lower entry price: {{ ms.pro.name }} is {{ ms.pro.price }}.</li>
+  </ul>
+</section>
+
+{% include "dashboard/partials/_compare_footer.html" %}
+{% endblock %}

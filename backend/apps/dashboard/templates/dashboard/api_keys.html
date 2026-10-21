@@ -1,0 +1,43 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}API Keys · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>API Keys</h1><p>Create and revoke REST API credentials.</p></div></header>
+<section class="card">
+  <form class="inline-form create-form" method="post" action="{% url 'dashboard:api-key-create' %}" hx-post="{% url 'dashboard:api-key-create' %}" hx-target="#api-key-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    {% csrf_token %}<input name="name" maxlength="80" required placeholder="Key name" aria-label="API key name"><input name="expires_in_days" type="number" min="1" max="3650" placeholder="Expires in days (optional)" aria-label="Expires in days (optional)"><button class="button">Create key</button>
+  </form>
+</section>
+<section id="api-key-result"></section>
+<section id="api-key-rows" class="card">{% include 'dashboard/partials/api_key_rows.html' %}</section>
+
+<section class="card" id="api-playground" data-api-base="{{ api_base }}">
+  <h2>Test your key</h2>
+  <p class="muted">Run a real API call from here to confirm a key works. Requests go straight to <code>{{ api_base }}/api/v1</code>; your key is used only for the call and is never stored.</p>
+  <div class="pg-controls">
+    <label class="pg-field pg-key-field">
+      <span>API key</span>
+      <input id="pg-key" type="password" autocomplete="off" spellcheck="false" placeholder="ms_live_…" aria-label="API key to test">
+    </label>
+    <label class="pg-field">
+      <span>Action</span>
+      <select id="pg-action" aria-label="API action to run">
+        <option value="list">GET /inboxes — list inboxes</option>
+        <option value="create">POST /inboxes — create an inbox</option>
+        <option value="messages">GET /inboxes/{id}/messages — list messages</option>
+        <option value="wait">GET /inboxes/{id}/messages/wait — wait for OTP</option>
+      </select>
+    </label>
+    <label class="pg-field" id="pg-inbox-wrap" hidden>
+      <span>Inbox id</span>
+      <input id="pg-inbox" type="text" autocomplete="off" spellcheck="false" placeholder="inbox_…" aria-label="Inbox public id">
+    </label>
+    <button type="button" id="pg-run" class="button">Run</button>
+  </div>
+  <div class="pg-out">
+    <div class="pg-out-head"><span class="pg-out-label">Equivalent curl</span></div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code id="pg-curl"></code></pre>
+    <div class="pg-out-head"><span class="pg-out-label">Response</span> <span id="pg-status" class="pg-status"></span></div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code id="pg-response"></code></pre>
+  </div>
+</section>
+{% endblock %}

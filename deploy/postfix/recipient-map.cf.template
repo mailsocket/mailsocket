@@ -1,0 +1,34 @@
+# Runtime shape only; entrypoint writes /etc/postfix/recipient-map.cf mode 0640.
+# Credentials come from the deployment environment and are never baked into the image.
+#  (BYOD): fail-closed acceptance gate, exact SQL from
+# the inbox exists, enabled, not deleted, AND either it's the shared apex
+# with a NULL-domain inbox, OR the RCPT domain is a VERIFIED custom Domain
+# that this inbox is bound to (domain_id join). %d/%u are lowercased by
+# Postfix; Domain.name is stored lowercase.
+#
+# added a UNION ALL third leg for verified custom domains with catch_all
+# enabled — routes any not-otherwise-matched localpart to the domain's live
+# sentinel inbox. legs 1+2 above (the original query) are kept VERBATIM.
+# P0-1 NON-NEGOTIABLE: `dc.name <> 'in.inboxpipe.net'` is a literal
+# CONTRADICTION alongside `dc.name = '%d'` when '%d' is the shared apex —
+# this makes the shared domain unreachable by catch-all even if a hostile
+# domains_domain row named 'in.inboxpipe.net' is force-inserted via raw SQL,
+# bypassing Domain.save()'s reserved-apex validation entirely. Do not remove
+# this guard; it is independent of (and does not rely on) Python-level
+# validation. See test #1 (hostile-row P0) in
+# backend/apps/ingest/tests/test_stage_c_catch_all.py.
+# P0-2 NON-NEGOTIABLE: this query reads dc.catch_all / dc.catch_all_inbox_id
+# (domains_domain) and si.id (inboxes_inbox) — deploy/provision-postfix-
+# role.py's grants MUST be updated and applied BEFORE this template ships,
+# or EVERY inbound RCPT (shared domain included) tempfails with a
+# permission error. See scripts/deploy.sh ordering + the postmap -q probe.
+# the leg2 join also re-verifies `si.domain_id = dc.id` — the sentinel must
+# actually belong to the domain it's being joined against, not merely have
+# a matching catch_all_inbox_id. Not currently reachable (set_catch_all
+# enforces inbox.domain_id==domain.id at write time), but this is a no-auth
+# mail path, so we don't rely on that invariant holding forever.
+hosts = db
+user = <POSTFIX_DB_READER_USER>
+password = <POSTFIX_DB_READER_PASSWORD>
+dbname = <DB_NAME>
+query = SELECT i.routing_key FROM inboxes_inbox i LEFT JOIN domains_domain d ON i.domain_id = d.id WHERE i.routing_key = '%u' AND i.routing_key = lower(i.routing_key) AND i.is_enabled IS TRUE AND i.deleted_at IS NULL AND ( ( '%d' = 'in.inboxpipe.net' AND i.domain_id IS NULL ) OR ( i.domain_id = d.id AND d.name = '%d' AND d.status = 'verified' ) ) UNION ALL SELECT '%u' FROM domains_domain dc JOIN inboxes_inbox si ON si.id = dc.catch_all_inbox_id AND si.domain_id = dc.id WHERE dc.name = '%d' AND dc.name <> 'in.inboxpipe.net' AND dc.status = 'verified' AND dc.catch_all IS TRUE AND si.is_enabled IS TRUE AND si.deleted_at IS NULL AND '%u' ~ '^[a-z0-9][a-z0-9._+=-]{0,63}$'

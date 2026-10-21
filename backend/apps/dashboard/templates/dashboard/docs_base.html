@@ -1,0 +1,41 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="{% block meta_description %}{{ title }}: the OTP &amp; magic-link inbox API from mailsocket.{% endblock %}">
+  <meta name="theme-color" content="#0a0e0d">
+  <meta property="og:title" content="{% block og_title %}{{ title }} · mailsocket{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ title }}: the OTP &amp; magic-link inbox API from mailsocket.{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'dashboard/og-image.png' %}">
+  <title>{% block title %}{{ title }} · mailsocket{% endblock %}</title>
+  {% include "dashboard/partials/_canonical.html" %}
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'dashboard/site.webmanifest' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+  <script defer src="{% static 'dashboard/app.min.js' %}"></script>
+</head>
+<body class="landing-body">
+  <div class="landing-shell docs-shell{% block shell_modifier %}{% endblock %}">
+    {% include "dashboard/partials/_site_header.html" %}
+
+    <div class="docs-layout{% block layout_modifier %}{% endblock %}">
+      {% block docs_nav %}{% include "dashboard/partials/_docs_nav.html" %}{% endblock %}
+      <main class="docs-content">
+        {# QA #10: Cloudflare Email Obfuscation rewrites every address in HTML into "[email protected]" + a /cdn-cgi/l/email-protection link (404 on HEAD, unreadable for curl / AI-agent readers). The whole docs content is sample code + API reference, so opt it out; CF honours these HTML comments. Contact mailto: links inside stay plain, clickable mailto:. #}
+        <!--email_off-->
+        <p class="landing-eyebrow">{% block eyebrow %}Docs{% endblock %}</p>
+        <h1>{% block h1 %}{{ title }}{% endblock %}</h1>
+        {% block lead %}{% endblock %}
+        {% block content %}{% endblock %}
+        <!--/email_off-->
+      </main>
+    </div>
+
+    {% include "dashboard/partials/_site_footer.html" %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Inboxes · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Inboxes</h1><p>Create and manage inbound addresses.</p></div>{% include 'dashboard/partials/inbox_usage.html' %}</header>
+<section class="card">
+  <form class="inline-form create-form" method="post" action="{% url 'dashboard:inbox-create' %}" hx-post="{% url 'dashboard:inbox-create' %}" hx-target="#inbox-rows" hx-swap="innerHTML" hx-disabled-elt="find button">
+    {% csrf_token %}<input name="label" maxlength="120" placeholder="Inbox label" aria-label="Inbox label"><input name="routing_key" maxlength="64" placeholder="custom-slug (optional)" aria-label="Custom inbox slug (optional)">{% include 'dashboard/partials/inbox_create_button.html' %}
+  </form>
+  <p class="hint">Leave the slug blank for a random address, or claim a custom one (3-64 chars, lowercase letters/digits/_/-, must start alphanumeric).</p>
+</section>
+<section id="inbox-rows" class="card">{% include 'dashboard/partials/inbox_rows.html' %}</section>
+{% endblock %}

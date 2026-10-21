@@ -1,0 +1,53 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}mailsocket vs MailSlurp: prices and features side by side, including where MailSlurp is the better choice, with sources.{% endblock %}
+{% block eyebrow %}Compare{% endblock %}
+{% block h1 %}mailsocket vs MailSlurp{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">MailSlurp is an established email and SMS testing platform with phone numbers, device previews and AI extraction. mailsocket is a smaller, email-only inbox API built around getting the OTP.</p>{% endblock %}
+
+{% block content %}
+{% include "dashboard/partials/_compare_checked.html" %}
+
+<section class="docs-section" id="table">
+  <h2>Side by side</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>&nbsp;</th><th>MailSlurp</th><th>mailsocket</th></tr></thead>
+      <tbody>
+        <tr><td>Free plan</td><td>✅ 500 emails received/month, 50 retained inboxes, 100 inbox creations/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>✅ {{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}, {{ ms.free.retention_display }} retention</td></tr>
+        <tr><td>Entry price</td><td>Starter $19.99/month: 1,000 emails received/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>
+        <tr><td>SMS and phone numbers</td><td>✅ From the Pro plan, country-rated rental and messaging charges (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Email only</td></tr>
+        <tr><td>Device previews (Gmail, Outlook, mobile)</td><td>✅ 1 render/month on Free (Gmail web/Android); Outlook desktop and Apple Mail from Pro (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
+        <tr><td>Custom domains</td><td>From Pro (access); 1 custom domain included on Growth ($129.99), more billed separately (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.domains_plan %}✅ On the {{ ms.domains_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>Connected Gmail/Outlook mailboxes</td><td>✅ Bring an existing mailbox into the same API (<a href="{{ src.llms }}" rel="noopener">source</a>)</td><td>❌ No, mailsocket-hosted addresses only</td></tr>
+        <tr><td>AI document/email extraction</td><td>✅ Structured JSON from prompts, schemas and OCR, billed by weighted AI tokens (<a href="{{ src.pricing }}" rel="noopener">source</a>, <a href="{{ src.llms }}" rel="noopener">source</a>)</td><td>❌ No; only OTP and magic-link extraction</td></tr>
+        <tr><td>Verification codes extracted automatically</td><td>✅ Code-extraction endpoint (<code>POST /emails/{id}/codes</code>) with a confidence score, called after waiting for the email (<a href="{{ src.codes }}" rel="noopener">source</a>)</td><td>✅ Yes, with a confidence score, every plan, returned in the wait response itself</td></tr>
+        <tr><td>Wait until a message arrives</td><td>✅ <code>waitForLatestEmail</code> and SDK wait helpers (<a href="{{ src.llms }}" rel="noopener">source</a>)</td><td>✅ The REST call <code>messages/wait</code> blocks up to {{ ms.wait_max }}s, from any language or tool, every plan</td></tr>
+        <tr><td>MCP server</td><td>✅ Hosted, with OAuth sign-in for Claude, ChatGPT and Cursor (<a href="{{ src.llms }}" rel="noopener">source</a>)</td><td>✅ Hosted and local, API key only</td></tr>
+        <tr><td>How widely used</td><td>✅ About 850,000 npm downloads of its SDK in the 30 days to 4 October 2026 (<a href="{{ src.downloads }}" rel="noopener">source</a>)</td><td>A new service with a small user base</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="choose-them">
+  <h2>When to choose MailSlurp</h2>
+  <ul class="docs-steps">
+    <li>You need SMS or phone-number testing alongside email.</li>
+    <li>You want device and inbox-placement previews (Gmail, Outlook, Apple Mail), or AI-based document extraction.</li>
+    <li>You want to connect an existing Gmail or Outlook mailbox instead of using only disposable addresses.</li>
+    <li>You want an established, widely used product with a larger user base.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="choose-mailsocket">
+  <h2>When to choose mailsocket</h2>
+  <ul class="docs-steps">
+    <li>You only need email, and you want the OTP back in the wait response itself, with no second extraction call.</li>
+    <li>You want a lower entry price: {{ ms.pro.name }} is {{ ms.pro.price }}, versus MailSlurp's Starter at $19.99/month.</li>
+    <li>You want one REST call that both waits for the message and returns the code, instead of waiting then calling a separate codes endpoint.</li>
+    <li>An AI agent needs an inbox: there is an MCP server, and an agent can get an API key without a signup form.</li>
+  </ul>
+</section>
+
+{% include "dashboard/partials/_compare_footer.html" %}
+{% endblock %}

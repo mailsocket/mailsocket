@@ -1,0 +1,123 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Billing · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Billing</h1><p>Your plan, payment status, and upgrades.</p></div></header>
+
+{% if checkout_banner %}<div class="flash" role="status">{{ checkout_banner }}</div>{% endif %}
+{% if pending_change %}<div class="flash" role="status">Plan change in progress — refresh in a minute. Your change to {{ pending_target_name }} is being applied.</div>{% endif %}
+
+<div class="stats">
+  <section class="card">
+    <span>Current plan</span>
+    <strong>{{ current_plan_name }}{% if current_plan_price %} <span class="plan-price">· {{ current_plan_price }}</span>{% endif %}</strong>
+    <small>{% if has_subscription %}Billed via Lemon Squeezy{% else %}No payment method on file{% endif %}</small>
+  </section>
+  <section class="card">
+    <span>Status</span>
+    <strong>
+      {% if plan_status == 'past_due' %}<span class="status warn">Past due</span>
+      {% elif plan_status == 'suspended' %}<span class="status err">Suspended</span>
+      {% else %}<span class="status on">Active</span>{% endif %}
+    </strong>
+    <small>{% if plan_status == 'past_due' %}Payment needs attention{% elif plan_status == 'suspended' %}Access is suspended{% else %}Everything is up to date{% endif %}</small>
+  </section>
+  <section class="card">
+    <span>Current period ends</span>
+    <strong>{% if plan.current_period_end %}{{ plan.current_period_end|date:'Y-m-d' }}{% else %}—{% endif %}</strong>
+    <small>Renewal or end-of-access date (UTC)</small>
+  </section>
+</div>
+
+{% if plan_status == 'past_due' %}
+<section class="card">
+  <div class="section-head"><h2>Payment needed</h2><span class="status warn">Past due</span></div>
+  <p class="usage-warning">Your last payment did not go through. While the payment is retried, your existing inboxes keep receiving mail and your API keys keep working, but paid actions are paused: you can't create new inboxes, webhooks or domains, invite members, change catch-all, or use outbound sending or full verification. If payment keeps failing, your plan will be suspended.</p>
+  {% if has_subscription and is_owner %}
+  <form method="post" action="{% url 'dashboard:billing-portal' %}" data-disable-on-submit>
+    {% csrf_token %}<button class="button">Update payment method</button>
+  </form>
+  {% endif %}
+</section>
+{% elif plan_status == 'suspended' %}
+<section class="card">
+  <div class="section-head"><h2>Subscription suspended</h2><span class="status err">Suspended</span></div>
+  <p class="usage-warning">Paid features are paused because of a billing problem. Restore payment to resume your plan, or contact <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off-->.</p>
+  {% if has_subscription and is_owner %}
+  <form method="post" action="{% url 'dashboard:billing-portal' %}" data-disable-on-submit>
+    {% csrf_token %}<button class="button">Restore payment</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if not is_owner %}
+<section class="card">
+  <div class="section-head"><h2>Plans</h2></div>
+  <p class="empty">Only the account owner can change the plan or manage billing.</p>
+</section>
+{% elif plan_status == 'active' %}
+{% if pending_change %}
+<section class="card">
+  <div class="section-head"><h2>Plans</h2><span class="status warn">Change in progress</span></div>
+  <p class="usage-note">Plan change in progress — refresh in a minute. Upgrade options come back once your new plan shows here.</p>
+</section>
+{% elif upgradeable %}
+<section class="card">
+  <div class="section-head"><h2>Upgrade your plan</h2><span class="usage-count">14-day money-back</span></div>
+  <div class="usage-grid">
+    {% for tier in upgradeable %}
+    <div>
+      <span>{{ tier.name }} · {{ tier.inboxes_display }} · {{ tier.messages_display }}</span>
+      <strong>{{ tier.price }}</strong>
+      <span>{{ tier.retention_display }} retention · Webhooks: {{ tier.webhooks_display }}</span>
+      {% if BILLING_CHANGES_PAUSED %}
+      {# kill switch: no form at all, so nothing can be submitted. #}
+      <button class="button" type="button" disabled aria-disabled="true">Upgrade to {{ tier.name }}</button>
+      {% elif has_subscription %}
+      {# billing-confirm: existing subscribers review price + card first; this GET never charges. #}
+      <form method="get" action="{% url 'dashboard:billing-change' %}">
+        <input type="hidden" name="plan" value="{{ tier.key }}">
+        <button class="button">Upgrade to {{ tier.name }}</button>
+      </form>
+      {% else %}
+      <form method="post" action="{% url 'dashboard:billing-checkout' %}" data-disable-on-submit>
+        {% csrf_token %}<input type="hidden" name="plan" value="{{ tier.key }}">
+        <button class="button">Upgrade to {{ tier.name }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if BILLING_CHANGES_PAUSED %}<p class="usage-note billing-paused-note" role="status">{{ BILLING_PAUSED_MESSAGE }}</p>{% endif %}
+  <p class="usage-note">Every paid plan includes a 14-day money-back guarantee — if mailsocket isn't right for you, email <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off--> within 14 days of your first payment for a full refund. See our <a href="{{ APEX_ORIGIN }}{% url 'dashboard:legal-terms' %}">Terms</a>.</p>
+</section>
+{% else %}
+<section class="card">
+  <div class="section-head"><h2>Plans</h2></div>
+  <p class="empty">You're on our highest self-serve plan. Need more? <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off--></p>
+</section>
+{% endif %}
+{% endif %}
+
+{% if is_owner and recent_payments %}
+<section class="card">
+  <div class="section-head"><h2>Recent payments</h2></div>
+  <ul class="row-list payment-list">
+    {% for p in recent_payments %}
+    <li><span class="truncate">{{ p.paid_at|date:'Y-m-d' }} · <strong>{{ p.amount_display }}</strong> · {{ p.get_reason_display }}{% if p.card_last_four %} · ••{{ p.card_last_four }}{% endif %}{% if p.refund_display %} · <span class="status warn">{{ p.refund_display }}</span>{% endif %}</span>{% if p.invoice_url %}<a href="{{ p.invoice_url }}" rel="noopener noreferrer" target="_blank">Invoice</a>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <p class="usage-note">Dates in UTC. Questions or a mistake? <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off--> — 14-day money-back.</p>
+</section>
+{% endif %}
+
+{% if has_subscription and is_owner %}
+<section class="card">
+  <div class="section-head"><h2>Manage billing</h2></div>
+  <p class="usage-note">Update your card, download invoices, or cancel — all in the secure customer portal. If you cancel, your plan stays active until the end of the period you already paid for.</p>
+  <form method="post" action="{% url 'dashboard:billing-portal' %}" data-disable-on-submit>
+    {% csrf_token %}<button class="button secondary">Open billing portal</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

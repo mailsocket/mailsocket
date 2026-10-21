@@ -1,0 +1,33 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="{{ title }} — mailsocket">
+  <meta name="theme-color" content="#0a0e0d">
+  <meta property="og:title" content="{{ title }} · mailsocket">
+  <meta property="og:description" content="{{ title }} — mailsocket">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'dashboard/og-image.png' %}">
+  <title>{{ title }} · mailsocket</title>
+  {% include "dashboard/partials/_canonical.html" %}
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'dashboard/site.webmanifest' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+  <script defer src="{% static 'dashboard/app.min.js' %}"></script>
+</head>
+<body class="landing-body">
+  <div class="landing-shell legal-shell">
+    {% include "dashboard/partials/_site_header.html" %}
+    <main class="legal-content">
+      <p class="landing-eyebrow">Legal</p>
+      <h1>{{ title }}</h1>
+      <p class="legal-effective">Effective September 29, 2026</p>
+      {% block legal_content %}{% endblock %}
+    </main>
+    {% include "dashboard/partials/_site_footer.html" %}
+  </div>
+</body>
+</html>

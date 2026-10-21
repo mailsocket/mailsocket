@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <meta name="robots" content="noindex">
+  <title>500 · Something went wrong · mailsocket</title>
+  <style>
+    /* Self-contained: a 500 may fire when static/context processors are unavailable. */
+    html,body{margin:0;background:#0a0e0d;color:#d7e4de;
+      font-family:ui-monospace,"JetBrains Mono",SFMono-Regular,Menlo,monospace;
+      min-height:100vh;-webkit-text-size-adjust:100%}
+    .wrap{max-width:640px;margin:0 auto;padding:14vh 24px 0;text-align:left}
+    .brand{display:inline-flex;align-items:center;gap:9px;color:#d7e4de;text-decoration:none;font-weight:600;margin-bottom:40px}
+    .dot{width:14px;height:14px;border-radius:4px;background:#4ade80;display:inline-block}
+    .code{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#7d918a;margin:0 0 10px}
+    h1{font-size:30px;line-height:1.2;margin:0 0 14px;color:#d7e4de}
+    p{color:#7d918a;line-height:1.6;margin:0 0 28px;font-size:15px}
+    a.btn{display:inline-block;background:#4ade80;color:#052012;text-decoration:none;
+      font-weight:600;padding:11px 18px;border-radius:8px;font-size:14px}
+    a.btn:hover{filter:brightness(1.05)}
+    a.btn2{display:inline-block;color:#d7e4de;text-decoration:none;font-weight:600;padding:11px 18px;
+      border:1px solid #24312c;border-radius:8px;font-size:14px;margin-left:10px}
+    .ref{font-size:13px;color:#7d918a;margin:-14px 0 28px}
+    .ref code{color:#d7e4de}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="brand" href="/"><span class="dot"></span> mailsocket</a>
+    <p class="code">500</p>
+    <h1>Something went wrong</h1>
+    <p>An unexpected error occurred on our end. We've been notified — please try again in a moment.</p>
+    {% if request_id %}<p class="ref">Reference: <code>{{ request_id }}</code></p>{% endif %}
+    <a class="btn" href="/">Back to home</a>
+    <a class="btn2" href="/feedback/?{% if request_id %}rid={{ request_id|urlencode }}&amp;{% endif %}from={{ path|urlencode }}">Report this problem</a>
+  </div>
+</body>
+</html>

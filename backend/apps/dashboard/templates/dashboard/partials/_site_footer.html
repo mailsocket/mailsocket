@@ -1,0 +1,33 @@
+<footer class="site-footer">
+  <div class="footer-cols">
+    <nav class="footer-col" aria-label="Product">
+      <h2>Product</h2>
+      <a href="{% url 'dashboard:pricing' %}">Pricing</a>
+      <a href="{% url 'dashboard:changelog' %}">Changelog</a>
+      <a href="{% url 'dashboard:try-it' %}">Try it without signup</a>
+    </nav>
+    <nav class="footer-col" aria-label="Developers">
+      <h2>Developers</h2>
+      <a href="{% url 'dashboard:docs' %}">Docs</a>
+      <a href="{% url 'dashboard:api-reference' %}">API reference</a>
+      <a href="{% url 'dashboard:error-reference' %}">Errors</a>
+      <a href="https://github.com/mailsocket">GitHub</a>
+    </nav>
+    <nav class="footer-col" aria-label="Company">
+      <h2>Company</h2>
+      <a href="{% url 'dashboard:security' %}">Security</a>
+      <a href="{% url 'status:page' %}">Status</a>
+      <a href="{% url 'feedback:public' %}">Report a problem</a>
+      {# F1: keep contact mailtos plain (Cloudflare Email Obfuscation would rewrite them to /cdn-cgi/l/email-protection). #}
+      <!--email_off--><a href="mailto:support@mailsocket.app">Contact</a><!--/email_off-->
+    </nav>
+    <nav class="footer-col" aria-label="Legal">
+      <h2>Legal</h2>
+      <a href="{% url 'dashboard:legal-terms' %}">Terms</a>
+      <a href="{% url 'dashboard:legal-privacy' %}">Privacy</a>
+      <a href="{% url 'dashboard:legal-aup' %}">Acceptable Use</a>
+      <!--email_off--><a href="mailto:abuse@inboxpipe.net">Report abuse</a><!--/email_off-->
+    </nav>
+  </div>
+  <p class="copyright">© 2026 mailsocket</p>
+</footer>

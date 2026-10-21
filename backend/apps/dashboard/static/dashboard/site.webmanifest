@@ -1,0 +1,23 @@
+{
+  "name": "mailsocket",
+  "short_name": "mailsocket",
+  "description": "OTP & magic-link inbox API",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e0d",
+  "theme_color": "#0a0e0d",
+  "icons": [
+    {
+      "src": "/static/dashboard/mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/dashboard/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

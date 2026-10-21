@@ -1,0 +1,12 @@
+<section class="card onboarding-result">
+  <div class="section-head"><h2>Your API key</h2></div>
+  <div class="card flash" role="status"><strong>Copy this key now. It will not be shown again.</strong><p><code id="created-api-key">{{ token }}</code> <button type="button" class="copy" data-copy-target="created-api-key">Copy</button></p></div>
+  {% if inbox %}
+  <div class="section-head"><h2>Wait for the next OTP</h2></div>
+  <p>Use the <code>GET /api/v1/inboxes/&lt;id&gt;/messages/wait</code> endpoint with your inbox address. The snippet is pre-filled with your inbox id and your new key.</p>
+  {% include 'dashboard/partials/wait_snippets.html' with ws_base=public_base_url ws_inbox=inbox ws_token=token ws_curl_id="snippet-curl" ws_python_id="snippet-python" ws_guides=True ws_apex=APEX_ORIGIN only %}
+  {# : hx-post into a flash-only target, so the one-time key above stays on screen. Without JS the plain POST reloads the Overview, hence the note. #}
+  <form class="inline-form test-code-form" method="post" action="{% url 'dashboard:inbox-test-code' inbox.public_id %}" hx-post="{% url 'dashboard:inbox-test-code' inbox.public_id %}" hx-target="#onboarding-test-code-flash" hx-swap="innerHTML" hx-disabled-elt="find button">{% csrf_token %}<input type="hidden" name="return_to" value="onboarding"><button class="button secondary" title="Puts a sample code straight into this inbox (does not go through the mail server).">Send a test code</button> <span class="hint">Copy your key first — it will not be shown again.</span></form>
+  <div id="onboarding-test-code-flash" aria-live="polite"></div>
+  {% endif %}
+</section>

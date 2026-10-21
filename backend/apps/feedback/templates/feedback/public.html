@@ -1,0 +1,12 @@
+{% extends "dashboard/docs_base.html" %}
+{% block title %}Report a problem · mailsocket{% endblock %}
+{% block meta_description %}Report a problem or send feedback to the mailsocket team. We reply by email within 1 business day.{% endblock %}
+{% block eyebrow %}Support{% endblock %}
+{% block h1 %}Report a problem{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Something broken, confusing or missing? Tell us here. A person reads every report and replies by email within 1 business day.</p>{% endblock %}
+{% block content %}
+<section class="docs-section feedback-section" id="report">
+  {% url 'feedback:public' as action %}
+  {% include "feedback/_form.html" with action=action button_class="landing-button landing-button-primary" %}
+</section>
+{% endblock %}

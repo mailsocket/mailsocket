@@ -1,0 +1,22 @@
+  {% with url_name=request.resolver_match.url_name %}
+  <a href="{% url 'dashboard:overview' %}"{% if url_name == 'overview' %} aria-current="page"{% endif %}>Overview</a>
+  <a href="{% url 'dashboard:inboxes' %}"{% if url_name == 'inboxes' %} aria-current="page"{% endif %}>Inboxes</a>
+  <a href="{% url 'dashboard:messages' %}"{% if url_name == 'messages' or url_name == 'message-detail' %} aria-current="page"{% endif %}>Messages</a>
+  <a href="{% url 'dashboard:api-keys' %}"{% if url_name == 'api-keys' %} aria-current="page"{% endif %}>API Keys</a>
+  <a href="{% url 'dashboard:webhooks' %}"{% if url_name == 'webhooks' or url_name == 'webhook-deliveries' %} aria-current="page"{% endif %}>Webhooks</a>
+  {% if ENABLE_BYOD %}
+  <a href="{% url 'dashboard:domains' %}"{% if url_name == 'domains' %} aria-current="page"{% endif %}>Domains</a>
+  {% endif %}
+  <a href="{% url 'dashboard:usage' %}"{% if url_name == 'usage' %} aria-current="page"{% endif %}>Usage</a>
+  {% if request.user.is_staff %}
+  <a href="{% url 'dashboard:fleet' %}"{% if url_name == 'fleet' %} aria-current="page"{% endif %}>Fleet</a>
+  {% endif %}
+  {% if ENABLE_BILLING %}
+  <a href="{% url 'dashboard:billing-page' %}"{% if url_name == 'billing-page' %} aria-current="page"{% endif %}>Billing</a>
+  {% endif %}
+  {% if ENABLE_TEAMS %}
+  <a href="{% url 'dashboard:team' %}"{% if url_name == 'team' %} aria-current="page"{% endif %}>Team</a>
+  {% endif %}
+  <a href="{% url 'dashboard:settings' %}"{% if url_name == 'settings' %} aria-current="page"{% endif %}>Settings</a>
+  {% if include_report %}{# Static link (no ?from=): pages must stay byte-identical across ids/tokens in their URL (no-oracle tests); /app/feedback/ prefills the page from the same-origin Referer. #}<a href="{% url 'feedback:app' %}"{% if request.resolver_match.app_name == 'feedback' %} aria-current="page"{% endif %}>Report a problem</a>{% endif %}
+  {% endwith %}

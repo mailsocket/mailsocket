@@ -1,0 +1,18 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}Step-by-step guides for waiting on an email OTP in pytest, Cypress, Puppeteer, Playwright and GitHub Actions with mailsocket.{% endblock %}
+{% block eyebrow %}Guides{% endblock %}
+{% block h1 %}Guides{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Copy-paste examples that submit a signup form with a mailsocket address and wait for the OTP. Most call the REST API directly; the Playwright guide uses the TypeScript SDK.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="guides">
+  <ul class="docs-guide-list">
+    {% for g in guides %}
+    <li>
+      <a href="{% url 'dashboard:guide' slug=g.slug %}">{{ g.title }}</a>
+      <p>{{ g.lead }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

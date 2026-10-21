@@ -1,0 +1,45 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Confirm plan change · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Confirm plan change</h1><p>Review what changes and what you'll pay before anything is charged.</p></div></header>
+
+{% if pending %}
+<section class="card">
+  <div class="section-head"><h2>Plan change in progress</h2><span class="status warn">Pending</span></div>
+  <p class="usage-note">Your change to {{ pending_target_name }} is being processed — refresh the billing page in a minute. Nothing more is needed from you.</p>
+  <p><a class="button secondary" href="{% url 'dashboard:billing-page' %}">Back to billing</a></p>
+</section>
+{% elif quote_error %}
+<section class="card">
+  <div class="section-head"><h2>Change to {{ target_name }}</h2><span class="status err">Unavailable</span></div>
+  <p class="usage-warning" role="alert">{{ quote_error }}</p>
+  {% if quote_error_portal %}<form method="post" action="{% url 'dashboard:billing-portal' %}" data-disable-on-submit>{% csrf_token %}<button class="button secondary">Open billing portal</button></form>{% endif %}
+  <p><a class="button secondary" href="{% url 'dashboard:billing-page' %}">Back to billing</a></p>
+</section>
+{% elif quote %}
+<section class="card billing-confirm">
+  <div class="section-head"><h2>{% if quote.is_downgrade %}Change to {{ quote.target_name }}{% else %}Upgrade to {{ quote.target_name }}{% endif %}</h2><span class="usage-count">14-day money-back</span></div>
+  <dl class="kv-grid">
+    <div><dt>Current plan</dt><dd>{{ quote.current_name }} · {{ quote.current_price }}</dd></div>
+    <div><dt>New plan</dt><dd>{{ quote.target_name }} · {{ quote.target_price }}</dd></div>
+    <div><dt>Payment method</dt><dd>{% if quote.card %}{{ quote.card }}{% else %}Card on file at Lemon Squeezy{% endif %}</dd></div>
+    <div><dt>Next renewal</dt><dd>{{ quote.renews_display }}</dd></div>
+  </dl>
+  {% if quote.is_downgrade %}
+  <p class="confirm-amount">Your plan changes to {{ quote.target_name }} <strong>now</strong> — {{ quote.current_name }} limits end immediately. No charge now and nothing is refunded for the rest of this period. From {{ quote.renews_date }} you pay {{ quote.target_price_short }}/{{ quote.target_interval }}.</p>
+
+  {% else %}
+  <p class="confirm-amount"><strong>You will be charged about {{ quote.estimate }} now</strong> (the difference for the rest of the current period, until {{ quote.renews_display }}), then {{ quote.target_price_short }}/{{ quote.target_interval }} from {{ quote.renews_date }}.</p>
+  <p class="usage-note">"About" because the final amount is calculated by our payment provider, Lemon Squeezy, at the moment of the change{% if quote.card %} and charged to your {{ quote.card }}{% endif %}. The receipt we email you shows the exact amount.</p>
+  {% endif %}
+  <div class="actions confirm-actions">
+    <form method="post" action="{% url 'dashboard:billing-change' %}" data-disable-on-submit>
+      {% csrf_token %}<input type="hidden" name="plan" value="{{ plan_key }}"><input type="hidden" name="token" value="{{ token }}">
+      <button class="button">{% if quote.is_downgrade %}Change to {{ quote.target_name }} now{% else %}Confirm and pay about {{ quote.estimate }}{% endif %}</button>
+    </form>
+    <a class="button secondary" href="{% url 'dashboard:billing-page' %}">Cancel</a>
+  </div>
+  <p class="usage-note">Questions? <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off--> — every paid plan has a 14-day money-back guarantee.</p>
+</section>
+{% endif %}
+{% endblock %}

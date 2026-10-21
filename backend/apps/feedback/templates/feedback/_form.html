@@ -1,0 +1,41 @@
+{# Shared by public.html and app.html. Plain POST, works without JS. The message is never rendered with |safe anywhere. #}
+{% if received %}
+<div class="feedback-received" role="status">
+  <p><strong>Received{% if report %} &mdash; reference #{{ report.pk }}{% endif %}.</strong> We reply by email within 1 business day.</p>
+</div>
+{% endif %}
+{% if rate_limited %}
+<p class="feedback-error" role="alert">You've sent several reports in the last hour, so this one was not saved. Please try again in an hour, or email support directly. Your text is still below.</p>
+{% endif %}
+<form class="feedback-form" method="post" action="{{ action }}" data-disable-on-submit novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<p class="feedback-error" role="alert">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+  <div class="feedback-field">
+    <label for="fb-message">What happened?</label>
+    <textarea id="fb-message" name="message" rows="8" maxlength="{{ message_max }}" required aria-describedby="fb-message-help">{{ form.message.value|default_if_none:"" }}</textarea>
+    <small id="fb-message-help" class="feedback-help">Up to {{ message_max|floatformat:"g" }} characters, plain text. Please don't paste API keys or codes.</small>
+    {% for error in form.message.errors %}<small class="feedback-error">{{ error }}</small>{% endfor %}
+  </div>
+  <div class="feedback-field">
+    <label for="fb-email">{% if signed_in %}Reply-to email (optional){% else %}Your email{% endif %}</label>
+    <input id="fb-email" type="email" name="email" maxlength="254" autocomplete="email" value="{{ form.email.value|default_if_none:"" }}"{% if not signed_in %} required{% endif %}>
+    <small class="feedback-help">{% if signed_in %}Leave empty to get the reply at your account email.{% else %}We only use it to reply to this report.{% endif %}</small>
+    {% for error in form.email.errors %}<small class="feedback-error">{{ error }}</small>{% endfor %}
+  </div>
+  <div class="feedback-field">
+    <label for="fb-page">Page (optional)</label>
+    <input id="fb-page" type="text" name="page_path" maxlength="200" placeholder="/app/inboxes/" value="{{ form.page_path.value|default_if_none:"" }}">
+    {% for error in form.page_path.errors %}<small class="feedback-error">{{ error }}</small>{% endfor %}
+  </div>
+  <div class="feedback-field">
+    <label for="fb-rid">Request id (optional)</label>
+    <input id="fb-rid" type="text" name="request_id" maxlength="64" placeholder="req_..." value="{{ form.request_id.value|default_if_none:"" }}" spellcheck="false" autocomplete="off">
+    <small class="feedback-help">Paste the <code>request_id</code> from an API error or the reference on an error page; it lets us find the request in seconds.</small>
+    {% for error in form.request_id.errors %}<small class="feedback-error">{{ error }}</small>{% endfor %}
+  </div>
+  <div class="feedback-hp" aria-hidden="true">
+    <label for="fb-website">Leave this field empty</label>
+    <input id="fb-website" type="text" name="website" tabindex="-1" autocomplete="off">
+  </div>
+  <button class="{{ button_class }}" type="submit">Send report</button>
+</form>

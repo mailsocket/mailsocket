@@ -1,0 +1,35 @@
+{% load static signup_tags %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <title>Check your email · mailsocket</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+  <script src="{% static 'dashboard/resend-countdown.min.js' %}" defer></script>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card auth-msg">
+    <div class="auth-brand">{% include "dashboard/partials/_brand.html" with brand_origin=APEX_ORIGIN %}</div>
+    {# Enumeration-safe: rendered ONLY from the address the user typed and the validated next, identical for new / pending / verified / unknown addresses. #}
+    <h1>Check your email</h1>
+    <p class="big">We sent a verification link to <strong class="check-email-address"><!--email_off-->{{ email }}<!--/email_off--></strong>. If it doesn't arrive within a minute, check Spam/Junk or resend below.</p>
+    <form method="post" action="{% url 'accounts:resend-verification' %}" class="resend-form">
+      {% csrf_token %}
+      <!--email_off--><input type="hidden" name="email" value="{{ email }}"><!--/email_off-->
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+      <button type="submit" class="button auth-submit" id="resend-button" data-cooldown="60">Resend email</button>
+      <span class="helptext resend-countdown" id="resend-countdown" aria-live="polite" hidden></span>
+    </form>
+    <div class="auth-links">
+      <a href="{% url 'accounts:login' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Go to sign in</a>
+      <a href="{% signup_href next=next_url absolute=False %}">Wrong address? Start over</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

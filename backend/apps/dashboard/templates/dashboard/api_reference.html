@@ -1,0 +1,174 @@
+{% extends "dashboard/docs_base.html" %}
+{% block eyebrow %}API reference{% endblock %}
+{% block h1 %}REST API reference (v1){% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Every endpoint is served under <code>/api/v1</code> and authenticated by an <code>Authorization: Bearer &lt;key&gt;</code> header. API keys start with <code>ms_live_</code>. The OpenAPI 3.1 spec is at <a href="{% url 'dashboard:openapi-yaml' %}">/docs/openapi.yaml</a>. v1 only changes in backward-compatible ways; see <a href="{% url 'dashboard:versioning' %}">versioning</a>.</p>{% endblock %}
+
+{% block content %}
+<div class="docs-api-ref">
+<section class="docs-section" id="auth">
+  <h2>Authentication</h2>
+  <p>Send your API key as a Bearer token on every request:</p>
+  <div class="docs-code-block">
+    <div class="landing-code-label">Authorization header</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">curl</span> -H <span class="code-string">"Authorization: Bearer ms_live_..."</span> <span class="code-string">"https://dash.mailsocket.app/api/v1/inboxes"</span></code></pre>
+  </div>
+  <p>Missing or invalid keys return <code>401</code> with <code>WWW-Authenticate: Bearer</code>. Dashboard session cookies are not accepted. Keys are hashed at rest and can be revoked individually from the dashboard.</p>
+  <p class="docs-note">Prefer a client? See the <a href="{% url 'dashboard:docs' %}#sdks">official SDKs and MCP server</a>.</p>
+</section>
+
+<section class="docs-section" id="rate-limits">
+  <h2>Rate limits</h2>
+  <p>Each API key can make <strong>{{ rate_per_minute }} requests per minute</strong> and <strong>{{ rate_per_hour }} requests per hour</strong>. The limits are the same on every plan; plans differ in how many waits can be open at once.</p>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>Plan</th><th>Requests per key</th><th>Concurrent waits per account</th></tr></thead>
+      <tbody>
+        {% for tier in wait_tiers %}<tr><td>{{ tier.name }}</td><td>{{ rate_per_minute }}/min, {{ rate_per_hour }}/hour</td><td>{{ tier.concurrent_waits }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p>Some endpoints have an extra limit, listed with the endpoint below (for example <code>POST /messages/batch</code> and <code>POST /verify</code>). Authenticated responses carry headers for the bucket closest to its limit:</p>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>Header</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>X-RateLimit-Limit</code></td><td>The ceiling for the matched bucket.</td></tr>
+        <tr><td><code>X-RateLimit-Remaining</code></td><td>Requests remaining in the current window.</td></tr>
+        <tr><td><code>X-RateLimit-Reset</code></td><td>Unix timestamp (seconds) when the window resets.</td></tr>
+        <tr><td><code>Retry-After</code></td><td>Seconds to wait before retrying. Present on every <code>429</code>, including the two wait-cap codes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Exceeding the limit returns <code>429</code> with code <code>rate_limited</code>. See the <a href="{% url 'dashboard:error-reference' %}">error reference</a>.</p>
+</section>
+
+<section class="docs-section" id="request-ids">
+  <h2>Request IDs</h2>
+  <p>Every response has an <code>X-Request-Id</code> header, and error bodies repeat it as <code>error.request_id</code>. Log it, and include it when you contact support so we can find the request.</p>
+</section>
+
+<section class="docs-section" id="pagination">
+  <h2>Cursor pagination</h2>
+  <p>List endpoints (<code>inboxes</code>, <code>inboxes/{id}/messages</code>, <code>domains</code>) page with an opaque cursor instead of page numbers. Each page's response has a <code>pagination</code> object:</p>
+  <div class="docs-code-block">
+    <div class="landing-code-label">Pagination object</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"pagination"</span>: {
+    <span class="code-key">"next_cursor"</span>: <span class="code-string">"opaque-signed-cursor"</span>,
+    <span class="code-key">"has_more"</span>: <span class="code-string">true</span>
+  }
+}</code></pre>
+  </div>
+  <ul class="docs-steps">
+    <li>Pass the returned <code>next_cursor</code> back as the <code>cursor</code> query parameter to fetch the next page.</li>
+    <li>When <code>has_more</code> is <code>false</code>, <code>next_cursor</code> is <code>null</code> and there are no more rows.</li>
+    <li>The cursor is signed and bound to its owner and filters. A cursor from one filter set cannot be reused with another.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="plan-gating">
+  <h2>Plan-gated features: 402 vs 403</h2>
+  <p>Two status codes mean "your plan does not include this". Match on <code>error.code</code>:</p>
+  <ul class="docs-steps">
+    <li><code>402 plan_upgrade_required</code>: a <strong>Free</strong> account called an operation that any paid plan unlocks. Today that is only <code>POST /messages/batch</code>.</li>
+    <li><code>403 &lt;feature&gt;_entitlement_required</code>: the plan does not include a named capability. <code>webhook_entitlement_required</code> (any paid plan), <code>domain_entitlement_required</code> (Scale and Business) and <code>catch_all_entitlement_required</code> (Business only).</li>
+  </ul>
+  <p>Retrying will not help. See <a href="{% url 'dashboard:pricing' %}">pricing</a>.</p>
+</section>
+
+<section class="docs-section" id="webhooks">
+  <h2>Webhooks</h2>
+  <p>Webhooks push every new message in an inbox to your HTTPS endpoint (paid plans). Configure one per inbox in the dashboard under <strong>Webhooks</strong>: set the URL and copy the signing secret (<code>whsec_…</code>), which is shown once. You can rotate it at any time. Use <code>POST /api/v1/inboxes/{id}/webhook/test</code> to send a signed test delivery.</p>
+  <h3>Delivery</h3>
+  <ul class="docs-steps">
+    <li>A <code>POST</code> with <code>Content-Type: application/json</code> to your URL, only to public HTTPS addresses (the resolved IP is pinned; private, loopback and link-local targets are refused).</li>
+    <li>Headers: <code>X-Mailsocket-Event</code> (<code>email.received</code>), <code>X-Mailsocket-Event-Id</code> (<code>evt_…</code>, the same on every retry, so use it to de-duplicate), <code>X-Mailsocket-Signature</code>, <code>X-Mailsocket-Signature-Version</code> (<code>1</code>).</li>
+    <li>Any <code>2xx</code> is success. <code>408</code>, <code>425</code>, <code>429</code> and <code>5xx</code> (and network errors) are retried with backoff; any other status is a permanent failure. Delivery history is visible per inbox in the dashboard.</li>
+  </ul>
+  <div class="docs-code-block">
+    <div class="landing-code-label">Payload (email.received)</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"id"</span>: <span class="code-string">"evt_..."</span>,
+  <span class="code-key">"event"</span>: <span class="code-string">"email.received"</span>,
+  <span class="code-key">"created_at"</span>: <span class="code-string">"2026-09-30T10:12:03Z"</span>,
+  <span class="code-key">"data"</span>: {
+    <span class="code-key">"message"</span>: { <span class="code-command">/* the same Message object as GET /messages/{id} */</span> }
+  }
+}</code></pre>
+  </div>
+  <h3>Verifying the signature</h3>
+  <p><code>X-Mailsocket-Signature</code> has the form <code>t=&lt;unix-seconds&gt;,v1=&lt;hex&gt;</code>. <code>v1</code> is HMAC-SHA256, keyed with your <code>whsec_…</code> secret, over the bytes <code>&lt;t&gt;.</code> followed by the <strong>raw</strong> request body (verify before parsing the JSON). Compare in constant time and reject stale timestamps to block replays.</p>
+  <div class="docs-code-block">
+    <div class="landing-code-label">Python</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> hashlib, hmac, time
+
+<span class="code-command">def</span> verify(secret, header, raw_body, tolerance=300):
+    fields = dict(part.split(<span class="code-string">"="</span>, 1) <span class="code-command">for</span> part <span class="code-command">in</span> header.split(<span class="code-string">","</span>))
+    t, supplied = fields[<span class="code-string">"t"</span>], fields[<span class="code-string">"v1"</span>]
+    <span class="code-command">if</span> abs(time.time() - int(t)) &gt; tolerance:
+        <span class="code-command">return</span> False
+    expected = hmac.new(secret.encode(), t.encode() + <span class="code-string">b"."</span> + raw_body, hashlib.sha256).hexdigest()
+    <span class="code-command">return</span> hmac.compare_digest(supplied, expected)</code></pre>
+  </div>
+</section>
+
+<section class="docs-section" id="public-inboxes">
+  <h2>Public inboxes</h2>
+  <p>Inboxes are private by default. An inbox created with <code>"public": true</code> (shared domain only) can also be read with no key at <code>GET /api/v1/public/emails/{email}/messages</code>. The response includes each message's <code>otp</code>, <code>magic_link</code>, sender, recipients, subject and time, and never the body, links, OTP context or metadata. Anyone with the address can read the codes, so use it only for demos and shared fixtures, never for real user signups.</p>
+</section>
+
+<section class="docs-section" id="endpoints">
+  <h2>Endpoints</h2>
+  {% for ep in endpoints %}
+  <article class="docs-section">
+    <h3><span class="method-badge method-{{ ep.method|lower }}">{{ ep.method }}</span> <code>{{ ep.path }}</code></h3>
+    <p>{{ ep.summary }}.</p>
+
+    {% if ep.params %}
+    <h3>Parameters</h3>
+    <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+      <table class="docs-table">
+        <thead><tr><th>Param</th><th>Type</th><th>Default</th><th>Constraint</th></tr></thead>
+        <tbody>
+          {% for p in ep.params %}
+          <tr>
+            <td><code>{{ p.name }}</code></td>
+            <td>{{ p.type }}</td>
+            <td><code>{{ p.default }}</code></td>
+            <td>{{ p.constraint }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if ep.body %}
+    <h3>Request body</h3>
+    <div class="docs-code-block">
+      <div class="landing-code-label">application/json</div>
+      <pre tabindex="0" role="region" aria-label="Code example"><code>{{ ep.body }}</code></pre>
+    </div>
+    {% endif %}
+
+    <h3>Responses</h3>
+    <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+      <table class="docs-table">
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          {% for status, meaning in ep.statuses %}
+          <tr>
+            <td><code>{{ status }}</code></td>
+            <td>{{ meaning }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if ep.response_schema %}<p>Successful responses wrap the payload as <code>{"data": &lt;{{ ep.response_schema }}&gt;}</code> (plus <code>pagination</code> on list endpoints). Field definitions live in <a href="{% url 'dashboard:openapi-yaml' %}">/docs/openapi.yaml</a>.</p>{% endif %}
+  </article>
+  {% endfor %}
+</section>
+</div>
+{% endblock %}

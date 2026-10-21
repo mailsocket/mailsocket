@@ -1,0 +1,142 @@
+# `lint-imports` in scripts/check.sh step 1b. Run by hand: cd backend && lint-imports
+#
+# Contracts encode the layering the code has TODAY (surveyed 2026-10-11 with
+# grimp over every non-test module):
+#   config.settings                 -> imports no app
+#   domain core (accounts, inboxes, domains, ingest, outbound, webhooks, ops)
+#                                   -> no billing / dashboard / status / feedback
+#   ingest                          -> never billing (money stays out of the mail path)
+#   api, billing, feedback, status  -> no dashboard (dashboard is the top UI layer)
+#   api / ingest / webhooks         -> independent, except the listed edges
+#
+# Each `ignore_imports` line below is WAIVED DEBT (ratchet-only): it has a
+# one-line reason, may be removed but never added to without the MEDIUM note.
+# A stale ignore (the import is gone) fails the contract
+# (unmatched_ignore_imports_alerting defaults to "error"), so a fixed
+# violation must also drop its waiver here.
+#
+# Test modules (apps.<app>.tests.*) are composition roots that may import
+# anything; their outgoing edges are ignored in every contract that needs it.
+
+[importlinter]
+root_packages =
+    apps
+    config
+include_external_packages = False
+
+[importlinter:contract:ops-is-a-leaf]
+name = apps.ops (alert channel) imports no feature app and no config
+type = forbidden
+source_modules =
+    apps.ops
+forbidden_modules =
+    apps.accounts
+    apps.api
+    apps.billing
+    apps.dashboard
+    apps.domains
+    apps.feedback
+    apps.inboxes
+    apps.ingest
+    apps.outbound
+    apps.status
+    apps.webhooks
+    config
+ignore_imports =
+    # test helpers / tests for notify may use any app fixture
+    apps.ops.tests.** -> **
+
+[importlinter:contract:settings-import-no-app]
+name = config.settings imports no app (settings load before the app registry)
+type = forbidden
+source_modules =
+    config.settings
+forbidden_modules =
+    apps
+
+[importlinter:contract:ingest-never-billing]
+name = apps.ingest never imports apps.billing (money stays out of the mail path)
+type = forbidden
+source_modules =
+    apps.ingest
+forbidden_modules =
+    apps.billing
+ignore_imports =
+    apps.ingest.tests.** -> **
+
+[importlinter:contract:core-no-ui-no-money]
+name = domain core imports no billing / dashboard / status / feedback
+type = forbidden
+source_modules =
+    apps.accounts
+    apps.inboxes
+    apps.domains
+    apps.ingest
+    apps.outbound
+    apps.webhooks
+    apps.ops
+forbidden_modules =
+    apps.billing
+    apps.dashboard
+    apps.status
+    apps.feedback
+ignore_imports =
+    apps.*.tests.** -> **
+    # e2e_cleanup deletes every row an e2e user created, BillingPayment included
+    apps.accounts.management.commands.e2e_cleanup -> apps.billing.models
+    # the daily retention job also purges old status ComponentCheck rows (one cron)
+    apps.inboxes.management.commands.purge_expired_messages -> apps.status.services
+
+[importlinter:contract:dashboard-is-top]
+name = api / billing / feedback / status do not import apps.dashboard
+type = forbidden
+source_modules =
+    apps.api
+    apps.billing
+    apps.feedback
+    apps.status
+forbidden_modules =
+    apps.dashboard
+ignore_imports =
+    apps.*.tests.** -> **
+    # POST /inboxes/{id}/test-code reuses the dashboard's send_test_code (lazy import)
+    apps.api.views -> apps.dashboard.views
+    # BL-18 price check reads the pricing page context (lazy import)
+    apps.billing.reconcile -> apps.dashboard.views
+    # billing pages reuse dashboard_required / _pricing_context / post_only
+    apps.billing.views -> apps.dashboard.views
+    apps.billing.views -> apps.dashboard.decorators
+    # the feedback form is a dashboard page (dashboard_required)
+    apps.feedback.views -> apps.dashboard.views
+    # shared trailing-slash redirect helper
+    apps.status.urls -> apps.dashboard.redirects
+
+[importlinter:contract:api-ingest-webhooks-independent]
+name = apps.api / apps.ingest / apps.webhooks are independent except the listed edges
+type = independence
+modules =
+    apps.api
+    apps.ingest
+    apps.webhooks
+ignore_imports =
+    apps.*.tests.** -> **
+    # serializers expose the parser's OTP extraction (documented cycle, serializers.py:8)
+    apps.api.serializers -> apps.ingest.parser
+    # webhook payload = the public MessageSerializer shape (documented cycle, services.py:12)
+    apps.webhooks.services -> apps.api.serializers
+    # ingest enqueues webhook deliveries after parse (lazy, outside the raw-store txn)
+    apps.ingest.parser -> apps.webhooks.services
+    # /api/v1/webhooks CRUD + test endpoint live in api.views
+    apps.api.views -> apps.webhooks.models
+    apps.api.views -> apps.webhooks.services
+    apps.api.views -> apps.webhooks.security
+    apps.api.views -> apps.webhooks.transport
+    # SMTP probe reuses the webhook SSRF guard
+    apps.api.smtp_probe -> apps.webhooks.security
+    # indirect: inboxes.services injects a test message through ingest (store + parse)
+    apps.inboxes.services -> apps.ingest.parser
+    apps.inboxes.services -> apps.ingest.services
+    # indirect: outbound reply-forward reuses the parser's header decoder
+    apps.outbound.reply_forward -> apps.ingest.parser
+    # indirect: api.views -> dashboard.views (test-code endpoint, see dashboard-is-top)
+    apps.api.views -> apps.dashboard.views

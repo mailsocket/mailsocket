@@ -1,0 +1,412 @@
+{% extends "dashboard/docs_base.html" %}
+{% load signup_tags %}
+{% block meta_description %}mailsocket quickstart: wait for an email OTP or magic link in one API call. Create an inbox, point your signup at it, and block on the wait endpoint.{% endblock %}
+{% block og_description %}mailsocket quickstart: wait for an email OTP or magic link in one API call. Create an inbox, point your signup at it, and block on the wait endpoint.{% endblock %}
+{% block title %}Quickstart &amp; API docs · mailsocket{% endblock %}
+{% block eyebrow %}Quickstart{% endblock %}
+{% block h1 %}Wait for the OTP. One API call.{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Point your signup form at a mailsocket inbox, then block on the wait endpoint until the OTP or magic link arrives. No Gmail, no IMAP.</p>{% endblock %}
+
+{% block content %}
+      <section class="docs-section docs-fastpath" id="sixty-seconds">
+        <h2>60-second path (no signup)</h2>
+        <p>One unauthenticated call creates an API key and an inbox. Then send a code to the inbox address and wait for it. No email handy? Send yourself a test code with one more call. The block needs <code>curl</code> and <code>jq</code> and runs as pasted.</p>
+        <div class="docs-code-block">
+          <div class="landing-code-label">curl</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command"># Needs curl and jq. Paste the whole block into bash.</span>
+<span class="code-command">command</span> -v jq &gt;/dev/null || <span class="code-command">echo</span> <span class="code-string">"This block needs jq: https://jqlang.org/download/"</span> &gt;&amp;2
+<span class="code-command"># 1. create a key + inbox and keep both in variables</span>
+RESP=$(<span class="code-command">curl</span> -s -X POST <span class="code-string">"{{ public_base_url }}/api/v1/agents/register"</span> \
+  -H <span class="code-string">"Content-Type: application/json"</span> \
+  -d <span class="code-string">'{"name": "my-test"}'</span>)
+<span class="code-command">export</span> MAILSOCKET_API_KEY=$(<span class="code-command">jq</span> -r .data.api_key &lt;&lt;&lt;<span class="code-string">"$RESP"</span>)
+INBOX=$(<span class="code-command">jq</span> -r .data.inbox.id &lt;&lt;&lt;<span class="code-string">"$RESP"</span>)
+<span class="code-command">echo</span> <span class="code-string">"Inbox address: $(jq -r .data.inbox.address &lt;&lt;&lt;"$RESP")"</span>
+<span class="code-command"># the key (ms_live_...) is shown once; the address is ...@{{ mail_domain }}</span>
+
+<span class="code-command"># 2. remember the newest message id (0 if the inbox is empty),</span>
+<span class="code-command">#    then email a code to that address. No email handy? Send</span>
+<span class="code-command">#    yourself a test code (it does not go through the mail server):</span>
+SINCE=$(<span class="code-command">curl</span> -s <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/$INBOX/messages/latest"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span> | <span class="code-command">jq</span> -r <span class="code-string">'.data.id // 0'</span>)
+<span class="code-command">curl</span> -s -X POST <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/$INBOX/test-code"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span>
+<span class="code-command">echo</span>
+
+<span class="code-command"># 3. wait for the code. since=$SINCE matches only mail newer than</span>
+<span class="code-command">#    that message, even if it arrived before this call started</span>
+<span class="code-command">#    (200 = code, 204 = call again with the same since). An empty</span>
+<span class="code-command">#    SINCE (no jq) stops here instead of matching older mail.</span>
+<span class="code-command">curl</span> -s <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/$INBOX/messages/wait?require=otp&amp;since=${SINCE:?no cutoff, install jq and rerun step 2}&amp;timeout=25"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span>
+
+<span class="code-command"># Or skip SINCE: start the wait first, then send the email or</span>
+<span class="code-command"># the test code from another shell while the wait is running.</span></code></pre>
+        </div>
+        <ul class="docs-steps">
+          <li>The key is shown once and is on the Free plan: {{ free_inboxes }} inbox{{ free_inboxes|pluralize:"es" }}, {{ free_retention_days }}-day message retention, {{ free_wait_cap }} concurrent waits.</li>
+          <li>Registration is limited to {{ agent_register_per_ip }} keys per hour per IP address.</li>
+          <li><code>POST /api/v1/inboxes/&lt;id&gt;/test-code</code> puts a sample OTP email straight into your own inbox. It does not go through the mail server, so it works even where you cannot send email. Limit: {{ test_code_per_inbox }} per inbox and {{ test_code_per_account }} per account per hour.</li>
+          <li>The account has no dashboard login. <a href="{% signup_href %}">Start free</a> with an account for a key you manage in the dashboard, with more inboxes on paid plans.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section" id="quickstart">
+        <h2>With an account</h2>
+        <ol class="docs-steps">
+          <li>
+            <strong>Create an inbox and an API key.</strong>
+            <a href="{% signup_href %}">Start free</a>, verify your email, and open the
+            <a href="{{ DASH_ORIGIN }}{% url 'dashboard:overview' %}">dashboard</a>. Your first inbox is created
+            automatically, and you can create an API key in one click.
+          </li>
+          <li>
+            <strong>Point your signup or test at your inbox address.</strong>
+            Addresses look like <code>&lt;key&gt;@{{ mail_domain }}</code>.
+          </li>
+          <li>
+            <strong>Wait for the code.</strong>
+            Call
+            <code>GET /api/v1/inboxes/&lt;id&gt;/messages/wait</code>
+            with <code>Authorization: Bearer &lt;key&gt;</code>. The call blocks until the OTP or
+            magic link arrives, then returns it.
+          </li>
+        </ol>
+      </section>
+
+      <section class="docs-section" id="wait-endpoint">
+        <h2>The wait endpoint</h2>
+        <p>
+          <code>GET /api/v1/inboxes/{id}/messages/wait</code> blocks until a matching parsed
+          message arrives, or returns <code>204</code> when the timeout elapses.
+        </p>
+
+        <h3>Query parameters</h3>
+        <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+          <table class="docs-table">
+            <thead>
+              <tr><th>Param</th><th>Type</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>timeout</code></td>
+                <td>seconds (float)</td>
+                <td>How long to block. Default <code>20</code>. Clamped to <code>[1, 25]</code> server-side.</td>
+              </tr>
+              <tr>
+                <td><code>since</code></td>
+                <td>ISO-8601 | <code>public_id</code> | unix ts</td>
+                <td>Only messages received strictly after this point match. Default: the request start time, so a code that arrives during the call is caught and an older one is not. Pass <code>since=0</code> to match messages already in the inbox (the oldest match is returned first), or a message id to continue after it.</td>
+              </tr>
+              <tr>
+                <td><code>require</code></td>
+                <td><code>otp</code> | <code>link</code> | <code>any</code></td>
+                <td>What counts as a match. Default <code>otp</code>. <code>link</code> matches a message with a magic link; <code>any</code> matches either.</td>
+              </tr>
+              <tr id="min-confidence">
+                <td><code>min_confidence</code></td>
+                <td>float <code>0..1</code></td>
+                <td>Only match an OTP whose <code>otp_confidence</code> is at least this. Default <code>0.0</code>. Ignored for <code>link</code>. <code>otp_confidence</code> is a heuristic score, not a model prediction: a code within 40 characters of a word like &ldquo;code&rdquo; or &ldquo;verification&rdquo; scores <code>0.95</code>, a bare number <code>0.35</code>, so <code>min_confidence=0.9</code> skips bare numbers.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Responses</h3>
+        <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+          <table class="docs-table">
+            <thead>
+              <tr><th>Status</th><th>Body</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>200</code></td>
+                <td><code>{"data": {...otp, magic_link, subject, from...}}</code></td>
+                <td>A matching parsed message arrived (the earliest one after <code>since</code>).</td>
+              </tr>
+              <tr>
+                <td><code>204</code></td>
+                <td>empty</td>
+                <td>The timeout elapsed with no match. Call again.</td>
+              </tr>
+              <tr>
+                <td><code>404</code></td>
+                <td>error body</td>
+                <td>The inbox does not exist or is not yours.</td>
+              </tr>
+              <tr>
+                <td><code>429</code></td>
+                <td>error body</td>
+                <td><code>too_many_wait_requests</code> (your plan's concurrent waits: {{ wait_caps }}) or <code>wait_capacity</code> (service-wide limit). Retry after the <code>Retry-After</code> header.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="docs-response-card">
+          <div class="landing-code-label">200 response</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"data"</span>: {
+    <span class="code-key">"subject"</span>: <span class="code-string">"Your verification code"</span>,
+    <span class="code-key">"from"</span>: <span class="code-string">"security@acme.test"</span>,
+    <span class="code-key">"otp"</span>: <span class="code-string">"482193"</span>,
+    <span class="code-key">"magic_link"</span>: <span class="code-string">null</span>
+  }
+}</code></pre>
+        </div>
+
+        <h3 id="wait-timeouts">How long a wait blocks</h3>
+        <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+          <table class="docs-table">
+            <thead>
+              <tr><th>Client</th><th>Default</th><th>Maximum</th><th>Behaviour</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>REST API (one call)</td><td><code>20s</code></td><td><code>25s</code></td><td>Returns <code>204</code> when the timeout elapses. Your code calls again.</td></tr>
+              <tr><td>Python / TypeScript SDK</td><td><code>60s</code></td><td>none</td><td>Calls the API in a loop (up to 25s per call) until a match or the total timeout, then raises <code>WaitTimeout</code>.</td></tr>
+              <tr><td>MCP server (local)</td><td><code>60s</code></td><td><code>120s</code></td><td>Same loop as the Python SDK.</td></tr>
+              <tr><td>MCP server (remote)</td><td><code>60s</code></td><td><code>55s</code></td><td>Each tool call returns within 55s. Call the tool again if nothing has arrived.</td></tr>
+              <tr><td>n8n node</td><td><code>60s</code></td><td><code>300s</code></td><td>Same loop; on timeout it errors or returns an empty item.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="docs-section" id="mark-read">
+        <h2>Mark a message read</h2>
+        <p>
+          <code>PATCH /api/v1/messages/{id}</code> with <code>{"read": true}</code> marks a message read;
+          <code>{"read": false}</code> marks it unread. The body accepts only <code>read</code>.
+        </p>
+        <div class="docs-code-block">
+          <div class="landing-code-label">curl</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">curl</span> -X PATCH <span class="code-string">"{{ public_base_url }}/api/v1/messages/msg_xxx"</span> \
+  -H <span class="code-string">"Authorization: Bearer ms_live_..."</span> \
+  -H <span class="code-string">"Content-Type: application/json"</span> \
+  -d <span class="code-string">'{"read": true}'</span>
+<span class="code-command"># → 200 {"data": {"id": "msg_xxx", "read": true, ...}}</span></code></pre>
+        </div>
+        <p>Paid plans can also mark or delete up to 100 messages in one call with <code>POST /api/v1/messages/batch</code>. See the <a href="{% url 'dashboard:api-reference' %}#endpoints">API reference</a>.</p>
+      </section>
+
+      <section class="docs-section" id="code-samples">
+        <h2>Code samples</h2>
+        <p class="docs-note">Each sample notes a start point (the time, or the newest message id) <em>before</em> it submits the signup form, then waits for the OTP with that point as <code>since</code>, so an email that arrives before the wait call starts is still matched. Set <code>MAILSOCKET_API_KEY</code> to your API key (<code>export MAILSOCKET_API_KEY=&lt;your key&gt;</code>) and replace <code>inbox_xxx</code> with your inbox id. The SDKs repeat the wait call for you; the raw HTTP samples show that loop.</p>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Python SDK</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> os
+<span class="code-command">import</span> time
+<span class="code-command">import</span> requests
+<span class="code-command">from</span> mailsocket <span class="code-command">import</span> Client
+
+client = Client(os.environ[<span class="code-string">"MAILSOCKET_API_KEY"</span>])
+started = time.time()  <span class="code-command"># before the submit, so a fast email still matches</span>
+requests.post(<span class="code-string">"https://app.example.com/signup"</span>, json={<span class="code-key">"email"</span>: <span class="code-string">"you@{{ mail_domain }}"</span>})
+result = client.wait_for_otp(<span class="code-string">"inbox_xxx"</span>, since=started, timeout=60)  <span class="code-command"># raises WaitTimeout after 60s</span>
+<span class="code-command">print</span>(result.otp)   <span class="code-command"># → "482193"</span></code></pre>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Node / TypeScript SDK</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> { MailsocketClient } <span class="code-command">from</span> <span class="code-string">"mailsocket-sdk"</span>;
+
+<span class="code-command">const</span> client = <span class="code-command">new</span> MailsocketClient(process.env.MAILSOCKET_API_KEY);
+<span class="code-command">const</span> started = Date.now() / 1000;  <span class="code-command">// before the submit, so a fast email still matches</span>
+<span class="code-command">await</span> fetch(<span class="code-string">"https://app.example.com/signup"</span>, {
+  method: <span class="code-string">"POST"</span>,
+  headers: { <span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span> },
+  body: JSON.stringify({ email: <span class="code-string">"you@{{ mail_domain }}"</span> }),
+});
+<span class="code-command">const</span> { otp } = <span class="code-command">await</span> client.waitForOtp(<span class="code-string">"inbox_xxx"</span>, { since: started, timeout: 60_000 });
+console.log(otp);   <span class="code-command">// → "482193"</span></code></pre>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">curl</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command"># 1. remember the newest message id (0 if the inbox is empty; needs jq)</span>
+SINCE=$(<span class="code-command">curl</span> -s <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/inbox_xxx/messages/latest"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span> | <span class="code-command">jq</span> -r <span class="code-string">'.data.id // 0'</span>)
+
+<span class="code-command"># 2. submit your signup form with a mailsocket address</span>
+<span class="code-command">curl</span> -X POST https://app.example.com/signup \
+  -H <span class="code-string">"Content-Type: application/json"</span> \
+  -d <span class="code-string">'{"email":"you@{{ mail_domain }}"}'</span>
+
+<span class="code-command"># 3. wait up to 25s; repeat with the same since while the status is 204</span>
+<span class="code-command">curl</span> <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/inbox_xxx/messages/wait?require=otp&amp;since=${SINCE:?no cutoff, install jq and rerun step 1}&amp;timeout=25"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span></code></pre>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Python (requests)</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> os
+<span class="code-command">import</span> time
+<span class="code-command">import</span> requests
+
+started = time.time()  <span class="code-command"># before the submit, so a fast email still matches</span>
+requests.post(<span class="code-string">"https://app.example.com/signup"</span>, json={<span class="code-key">"email"</span>: <span class="code-string">"you@{{ mail_domain }}"</span>})
+
+deadline = time.monotonic() + 60
+otp = None
+<span class="code-command">while</span> otp <span class="code-command">is</span> None <span class="code-command">and</span> time.monotonic() &lt; deadline:
+    r = requests.get(
+        <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/inbox_xxx/messages/wait"</span>,
+        params={<span class="code-key">"require"</span>: <span class="code-string">"otp"</span>, <span class="code-key">"since"</span>: started, <span class="code-key">"timeout"</span>: 25},
+        headers={<span class="code-key">"Authorization"</span>: <span class="code-string">f"Bearer {os.environ['MAILSOCKET_API_KEY']}"</span>},
+        timeout=35,
+    )
+    <span class="code-command">if</span> r.status_code == 200:
+        otp = r.json()[<span class="code-string">"data"</span>][<span class="code-string">"otp"</span>]   <span class="code-command"># → "482193"</span>
+    <span class="code-command">elif</span> r.status_code != 204:   <span class="code-command"># 204 = no code yet, loop again</span>
+        r.raise_for_status()</code></pre>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Node / JS (fetch)</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">// 1. note the time before the submit, so a fast email still matches</span>
+<span class="code-command">const</span> started = Date.now() / 1000;
+
+<span class="code-command">// 2. submit your signup form with a mailsocket address</span>
+<span class="code-command">await</span> fetch(<span class="code-string">"https://app.example.com/signup"</span>, {
+  method: <span class="code-string">"POST"</span>,
+  headers: { <span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span> },
+  body: JSON.stringify({ email: <span class="code-string">"you@{{ mail_domain }}"</span> }),
+});
+
+<span class="code-command">// 3. wait up to 25s per call; 204 means no code yet, so call again</span>
+<span class="code-command">const</span> url = <span class="code-command">new</span> URL(<span class="code-string">"{{ public_base_url }}/api/v1/inboxes/inbox_xxx/messages/wait"</span>);
+url.searchParams.set(<span class="code-string">"require"</span>, <span class="code-string">"otp"</span>);
+url.searchParams.set(<span class="code-string">"since"</span>, String(started));
+url.searchParams.set(<span class="code-string">"timeout"</span>, <span class="code-string">"25"</span>);
+<span class="code-command">const</span> deadline = Date.now() + 60_000;
+<span class="code-command">let</span> otp = <span class="code-command">null</span>;
+<span class="code-command">while</span> (otp === <span class="code-command">null</span> &amp;&amp; Date.now() &lt; deadline) {
+  <span class="code-command">const</span> res = <span class="code-command">await</span> fetch(url, {
+    headers: { <span class="code-key">Authorization</span>: <span class="code-string">`Bearer ${process.env.MAILSOCKET_API_KEY}`</span> },
+  });
+  <span class="code-command">if</span> (res.status === 200) otp = (<span class="code-command">await</span> res.json()).data.otp;   <span class="code-command">// → "482193"</span>
+  <span class="code-command">else if</span> (res.status !== 204) <span class="code-command">throw new</span> Error(<span class="code-string">`wait failed: ${res.status}`</span>);
+}</code></pre>
+        </div>
+
+        <div class="docs-callout">
+          <h3>Run it in your E2E suite</h3>
+          <p>
+            A ready-to-copy <strong>Playwright</strong> example fills a signup form with a
+            mailsocket address and waits for the OTP:
+            <a href="https://github.com/mailsocket/mailsocket-sdk/tree/main/examples/playwright"><code>examples/playwright/otp-signup.spec.ts</code></a>. It reads
+            <code>MAILSOCKET_API_KEY</code>, <code>MAILSOCKET_INBOX_ID</code> and <code>MAILSOCKET_INBOX_ADDRESS</code> from the environment.
+            More in <a href="{% url 'dashboard:guides' %}">Guides</a>.
+          </p>
+        </div>
+      </section>
+
+      <section class="docs-section" id="sdks">
+        <h2>SDKs &amp; MCP server</h2>
+        <p class="docs-note">Official clients for the API above, with <code>wait_for_otp</code> built in.</p>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Python: install</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">pip install mailsocket</span></code></pre>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Python</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> time
+<span class="code-command">from</span> mailsocket <span class="code-command">import</span> Client
+
+client = Client(<span class="code-string">"ms_live_..."</span>)
+inbox = client.create_inbox()
+started = time.time()
+<span class="code-command"># trigger your signup with inbox["address"] here</span>
+otp = client.wait_for_otp(inbox[<span class="code-string">"id"</span>], since=started).otp</code></pre>
+          <p class="docs-note">No email handy? <code>client.send_test_code(inbox["id"])</code> (since <code>mailsocket</code> 0.3.0) puts a sample code into the inbox without going through the mail server. Call it where the trigger comment is, after <code>started</code>, and the wait returns that code.</p>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Node / TypeScript: install</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">npm i mailsocket-sdk</span></code></pre>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Node / TypeScript</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> { MailsocketClient } <span class="code-command">from</span> <span class="code-string">"mailsocket-sdk"</span>;
+
+<span class="code-command">const</span> client = <span class="code-command">new</span> MailsocketClient(<span class="code-string">"ms_live_..."</span>);
+<span class="code-command">const</span> inbox = <span class="code-command">await</span> client.createInbox();
+<span class="code-command">const</span> started = Date.now() / 1000;
+<span class="code-command">// trigger your signup with inbox.address here</span>
+<span class="code-command">const</span> { otp } = <span class="code-command">await</span> client.waitForOtp(inbox.id, { since: started });</code></pre>
+          <p class="docs-note">No email handy? <code>await client.sendTestCode(inbox.id)</code> (since <code>mailsocket-sdk</code> 0.3.0) does the same: call it where the trigger comment is, after <code>started</code>.</p>
+        </div>
+        <p class="docs-note">Take <code>started</code> just before you trigger the email and pass it as <code>since</code>: a code that arrives before the wait call starts is still matched, and an older code in a reused inbox is not. Without <code>since</code>, the SDK wait methods match only messages that arrive during the call, so a fast email can be missed. You can also pass the id of the last message you handled, or <code>since=0</code> to match anything already in the inbox.</p>
+
+        <div class="docs-code-block" id="mcp">
+          <div class="landing-code-label">AI agents (MCP)</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">uvx mailsocket-mcp</span></code></pre>
+          <pre tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"mcpServers"</span>: {
+    <span class="code-key">"mailsocket"</span>: {
+      <span class="code-key">"command"</span>: <span class="code-string">"uvx"</span>,
+      <span class="code-key">"args"</span>: [<span class="code-string">"mailsocket-mcp"</span>],
+      <span class="code-key">"env"</span>: { <span class="code-key">"MAILSOCKET_API_KEY"</span>: <span class="code-string">"ms_live_..."</span> }
+    }
+  }
+}</code></pre>
+          <p class="docs-note">Requires Python 3.10+. Tools: <code>create_inbox</code>, <code>wait_for_otp</code>, <code>wait_for_link</code>, <code>list_inboxes</code>, <code>list_messages</code>, <code>get_latest</code>, <code>delete_inbox</code>, and <code>send_test_code</code> (since <code>mailsocket-mcp</code> 0.4.0). Listed on the Official MCP Registry as <code>app.mailsocket/mailsocket-mcp</code>.</p>
+        </div>
+
+        <div class="docs-code-block">
+          <div class="landing-code-label">Remote MCP (no install)</div>
+          <p class="docs-note">The same tools are hosted at <code>https://mcp.mailsocket.app/mcp</code> over Streamable HTTP. Send your key as a header on every request. A key in the URL (<code>?api_key=</code>) is rejected.</p>
+          <p class="docs-note">Claude Code CLI:</p>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">claude mcp add --transport http mailsocket https://mcp.mailsocket.app/mcp</span> \
+  --header <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span></code></pre>
+          <p class="docs-note">Cursor (<code>~/.cursor/mcp.json</code>):</p>
+          <pre tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"mcpServers"</span>: {
+    <span class="code-key">"mailsocket"</span>: {
+      <span class="code-key">"url"</span>: <span class="code-string">"https://mcp.mailsocket.app/mcp"</span>,
+      <span class="code-key">"headers"</span>: { <span class="code-key">"Authorization"</span>: <span class="code-string">"Bearer ms_live_..."</span> }
+    }
+  }
+}</code></pre>
+          <p class="docs-note">VS Code (<code>.vscode/mcp.json</code>):</p>
+          <pre tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"servers"</span>: {
+    <span class="code-key">"mailsocket"</span>: {
+      <span class="code-key">"type"</span>: <span class="code-string">"http"</span>,
+      <span class="code-key">"url"</span>: <span class="code-string">"https://mcp.mailsocket.app/mcp"</span>,
+      <span class="code-key">"headers"</span>: { <span class="code-key">"Authorization"</span>: <span class="code-string">"Bearer ms_live_..."</span> }
+    }
+  }
+}</code></pre>
+          <p class="docs-note">The remote server is stateless, with per-key limits of 10 waits and 8 other calls in flight (your plan&rsquo;s own concurrent-wait cap still applies). See <a href="#wait-timeouts">how long a wait blocks</a>.</p>
+          <p class="docs-note">Claude.ai, Claude Desktop connectors and Smithery need OAuth, which is planned but not available yet. Use the local stdio server in those clients.</p>
+        </div>
+      </section>
+
+      <section class="docs-section" id="inbox-domain">
+        <h2>Why addresses use inboxpipe.net</h2>
+        <p>Inbox addresses live on <code>{{ mail_domain }}</code>, not on mailsocket.app. Keeping inbound test mail on its own domain isolates its reputation from the domain we use for our website, account email and support, so a problem with one never takes down the other.</p>
+        <p>Some signup forms block domains they do not recognise, including new ones. If a form you test rejects the address, use a custom domain you own: on the Scale and Business plans you can receive mail at your own domain (catch-all is Business only). See <a href="{% url 'dashboard:pricing' %}">Pricing</a>.</p>
+      </section>
+
+      <section class="docs-section" id="public-inboxes">
+        <h2>Public inboxes</h2>
+        <p>Inboxes are private. An inbox created with <code>"public": true</code> can also be read without a key at <code>GET /api/v1/public/emails/{address}/messages</code>. This is off by default and only possible on <code>{{ mail_domain }}</code> addresses.</p>
+        <p>The public response includes <code>otp</code>, <code>magic_link</code>, <code>from</code>, <code>to</code>, <code>cc</code>, <code>subject</code> and <code>received_at</code> for the 20 most recent messages. It never includes the message body, links, OTP context or metadata. Anyone who knows the address can read the codes, so use public inboxes only for demos and shared fixtures, never for real user signups.</p>
+      </section>
+
+      <section class="docs-section" id="more">
+        <h2>More references</h2>
+        <ul class="docs-steps">
+          <li><a href="{% url 'dashboard:try-it' %}">Try it without signup</a>: get a demo inbox in one click and watch a real OTP arrive.</li>
+          <li><a href="{% url 'dashboard:api-reference' %}">API reference</a>: every v1 endpoint, parameter and status code, plus pagination and rate limits.</li>
+          <li><a href="{% url 'dashboard:error-reference' %}">Error reference</a>: every error code the API returns.</li>
+          <li><a href="{% url 'dashboard:guides' %}">Guides</a>: pytest, Cypress, Puppeteer and GitHub Actions.</li>
+          <li><a href="{% url 'dashboard:versioning' %}">Versioning</a>, <a href="{% url 'dashboard:faq' %}">FAQ</a> and <a href="{% url 'dashboard:changelog' %}">changelog</a>.</li>
+        </ul>
+      </section>
+{% endblock %}

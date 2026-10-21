@@ -1,0 +1,14 @@
+Django==5.2.18
+djangorestframework==3.18.3
+psycopg2-binary==2.9.13
+# Django prefers psycopg3 when installed; [pool] backs the production DB pool
+psycopg[binary,pool]==3.3.6
+gunicorn==23.0.0
+whitenoise==6.12.0
+django-cors-headers==4.9.0
+django-ratelimit==4.1.0
+python-dotenv==1.2.4
+nh3==0.3.7
+dnspython==2.8.0
+dkimpy==1.1.8
+cryptography==50.0.2

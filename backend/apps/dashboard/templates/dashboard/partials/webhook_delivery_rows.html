@@ -1,0 +1,10 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Webhook deliveries · mailsocket{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'dashboard:webhooks' %}">← Webhooks</a>
+<header class="page-head"><div><h1>Webhook deliveries</h1><p><code>{{ webhook.public_id }}</code></p></div></header>
+<section class="card">{% if deliveries %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table"><thead><tr><th>Delivery</th><th>Event</th><th>Status</th><th class="num-col">Attempts</th><th class="col-time">Last attempt</th><th class="num-col">HTTP</th><th>Outcome</th></tr></thead><tbody>
+{% for delivery in deliveries %}<tr><td class="nowrap"><code>{{ delivery.public_id }}</code></td><td class="nowrap"><code>{{ delivery.event_id }}</code></td><td class="nowrap"><span class="status{% if delivery.status == 'succeeded' %} on{% elif delivery.status == 'exhausted' %} err{% elif delivery.status == 'pending' or delivery.status == 'delivering' %} warn{% endif %}">{{ delivery.status }}</span></td><td class="num-col num">{{ delivery.attempt_count }}</td><td class="nowrap num">{% if delivery.last_attempt_at %}{{ delivery.last_attempt_at|date:'Y-m-d H:i:s T' }}{% else %}—{% endif %}</td><td class="num-col num">{{ delivery.last_response_code|default:'—' }}</td><td class="nowrap">{{ delivery.last_error_code|default:'—' }}</td></tr>
+{% endfor %}
+</tbody></table></div>{% else %}<p class="empty-state">No deliveries yet.</p>{% endif %}</section>
+{% endblock %}

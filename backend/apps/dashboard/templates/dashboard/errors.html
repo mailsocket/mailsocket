@@ -1,0 +1,53 @@
+{% extends "dashboard/docs_base.html" %}
+{% block eyebrow %}Error reference{% endblock %}
+{% block h1 %}Error reference{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Every API error has the same shape: an <code>error</code> object with a stable <code>code</code>, a readable <code>message</code>, a <code>fields</code> object (empty unless a field failed validation) and a <code>request_id</code>.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="shape">
+  <h2>Response shape</h2>
+  <div class="docs-code-block">
+    <div class="landing-code-label">Error body</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code>{{ error_body }}</code></pre>
+  </div>
+  <p>Match on <code>error.code</code>. Codes are stable; message text may change.</p>
+</section>
+
+<section class="docs-section" id="request-id">
+  <h2>Request IDs</h2>
+  <p>Every response, successful or not, has an <code>X-Request-Id</code> header. Error bodies repeat the same value as <code>error.request_id</code>. Log it with your test output and include it when you contact <!--email_off--><a href="mailto:support@mailsocket.app">support@mailsocket.app</a><!--/email_off-->, so we can find the exact request.</p>
+</section>
+
+<section class="docs-section" id="retry-after">
+  <h2>Retrying 429s</h2>
+  <p>Every <code>429</code> response carries a <code>Retry-After</code> header with the number of seconds to wait. The wait endpoint has two codes of its own:</p>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>Code</th><th>Limit</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td><code>too_many_wait_requests</code></td><td>Concurrent waits per account: {{ wait_caps }}.</td><td>Wait <code>Retry-After</code> seconds, or for one of your open waits to return. Run fewer waits in parallel, or move to a plan with more.</td></tr>
+        <tr><td><code>wait_capacity</code></td><td>A service-wide limit on open waits, shared by all accounts.</td><td>Wait <code>Retry-After</code> seconds and retry. This is temporary and does not count against your plan.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="codes">
+  <h2>Codes</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>How to handle</th></tr></thead>
+      <tbody>
+        {% for row in error_rows %}
+        <tr>
+          <td><code>{{ row.code }}</code></td>
+          <td><code>{{ row.status }}</code></td>
+          <td>{{ row.meaning }}</td>
+          <td>{{ row.handle }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

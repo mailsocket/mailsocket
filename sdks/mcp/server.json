@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "app.mailsocket/mailsocket-mcp",
+  "title": "mailsocket",
+  "description": "Email inboxes for AI agents: create an inbox, then block until the OTP or magic link arrives.",
+  "version": "0.4.1",
+  "websiteUrl": "https://dash.mailsocket.app/docs/#sdks",
+  "repository": {"url": "https://github.com/mailsocket/mailsocket-sdk", "source": "github", "subfolder": "mcp"},
+  "packages": [{
+    "registryType": "pypi", "identifier": "mailsocket-mcp", "version": "0.4.1",
+    "runtimeHint": "uvx", "transport": {"type": "stdio"},
+    "environmentVariables": [
+      {"name": "MAILSOCKET_API_KEY", "description": "mailsocket API key (ms_live_...). Create one in the dashboard or via POST /api/v1/agents/register.", "isRequired": true, "isSecret": true, "format": "string"},
+      {"name": "MAILSOCKET_BASE_URL", "description": "Override the API base URL. Defaults to https://dash.mailsocket.app/api/v1.", "format": "string"}
+    ]
+  }],
+  "remotes": [{
+    "type": "streamable-http", "url": "https://mcp.mailsocket.app/mcp",
+    "headers": [
+      {"name": "Authorization", "description": "Bearer ms_live_... (create a key in the dashboard or via POST /api/v1/agents/register)", "isRequired": true, "isSecret": true}
+    ]
+  }]
+}

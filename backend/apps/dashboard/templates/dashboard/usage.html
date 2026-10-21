@@ -1,0 +1,57 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Usage · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Usage</h1><p>Your current billing period at a glance.</p></div></header>
+
+<div class="stats">
+  <section class="card">
+    <span>Plan</span>
+    <strong>{{ usage.plan.display_name }}</strong>
+    <small>Status: {{ usage.plan.get_status_display }}</small>
+  </section>
+  <section class="card">
+    <span>Period start</span>
+    <strong>{{ usage.period_start|date:'Y-m-d' }}</strong>
+    <small>UTC calendar month</small>
+  </section>
+  <section class="card">
+    <span>Webhooks</span>
+    <strong>{{ usage.can_enable_webhook|yesno:'Available,Not included' }}</strong>
+    <small>{{ usage.can_enable_webhook|yesno:'Your plan can enable webhooks.,Upgrade to enable webhooks.' }}</small>
+  </section>
+</div>
+
+<div class="split-2">
+<section class="card">
+  <div class="section-head"><h2>Messages this month</h2><span class="usage-count">{{ usage.messages_received|floatformat:"g" }} / {{ usage.message_limit|floatformat:"g" }}</span></div>
+  <progress class="usage-bar{% if message_warning %} usage-bar-warn{% endif %}" max="100" value="{{ message_pct }}">{{ message_pct }}%</progress>
+  {% if usage.limit_exceeded %}
+  <p class="usage-warning">Soft limit exceeded — inbound mail is still accepted, but you are over this period's message allowance.</p>
+  {% elif message_warning %}
+  <p class="usage-warning">You are approaching this period's message limit.</p>
+  {% else %}
+  <p class="usage-note">Resets each UTC calendar month.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="section-head"><h2>Inboxes</h2><span class="usage-count">{{ usage.inbox_count|floatformat:"g" }} / {{ usage.inbox_limit|floatformat:"g" }}</span></div>
+  <progress class="usage-bar" max="{{ usage.inbox_limit }}" value="{{ usage.inbox_count }}">{{ usage.inbox_count }} / {{ usage.inbox_limit }}</progress>
+  <p class="usage-note">{% if usage.can_create_inbox %}You can create another inbox.{% else %}You have reached your plan's inbox limit.{% endif %}</p>
+</section>
+</div>
+
+<section class="card">
+  <div class="section-head"><h2>API activity</h2></div>
+  <div class="usage-grid usage-grid-3">
+    <div><span>API requests</span><strong>{{ usage.api_requests|floatformat:"g" }}</strong></div>
+    <div><span>Webhook attempts</span><strong>{{ usage.webhook_attempts|floatformat:"g" }}</strong></div>
+    <div><span>Emails verified this month</span><strong>{{ usage.verifications_used|floatformat:"g" }}</strong></div>
+  </div>
+  <p class="usage-note">Counted for the current billing period.</p>
+</section>
+
+<section class="card">
+  <p class="usage-note">Need more? <a href="{{ UPGRADE_URL }}">See plans</a>. Team seats are included in the Business plan.</p>
+</section>
+{% endblock %}

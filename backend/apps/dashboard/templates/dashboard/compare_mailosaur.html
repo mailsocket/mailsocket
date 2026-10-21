@@ -1,0 +1,54 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}mailsocket vs Mailosaur: prices and features side by side, including where Mailosaur is the better choice, with sources.{% endblock %}
+{% block eyebrow %}Compare{% endblock %}
+{% block h1 %}mailsocket vs Mailosaur{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Mailosaur is an established email and SMS testing platform for QA teams. mailsocket is a smaller, email-only inbox API built around getting the OTP.</p>{% endblock %}
+
+{% block content %}
+{% include "dashboard/partials/_compare_checked.html" %}
+
+<section class="docs-section" id="table">
+  <h2>Side by side</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>&nbsp;</th><th>Mailosaur</th><th>mailsocket</th></tr></thead>
+      <tbody>
+        <tr><td>Free plan</td><td>❌ No free plan; 14-day free trial (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>✅ {{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}, {{ ms.free.retention_display }} retention</td></tr>
+        <tr><td>Entry price</td><td>From $20/month, billed annually: 1 inbox with unlimited addresses, from 15,000 inbound emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>
+        <tr><td>Team plan</td><td>From $50/month, billed annually, with 5 seats (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.scale.name }} {{ ms.scale.price }}: {{ ms.scale.inboxes_display }}; team seats on {{ ms.business.name }} {{ ms.business.price }}</td></tr>
+        <tr><td>Discount for paying yearly</td><td>✅ Save 20% (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Monthly only</td></tr>
+        <tr><td>SMS testing</td><td>✅ Add-on from $37.50/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Email only</td></tr>
+        <tr><td>Email previews (Gmail, Outlook, mobile)</td><td>✅ Add-on from $25/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
+        <tr><td>Custom domains</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.domains_plan %}✅ On the {{ ms.domains_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>Single Sign-On (SAML, OIDC)</td><td>✅ On Enterprise (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
+        <tr><td>Verification codes extracted automatically</td><td>✅ Yes (<a href="{{ src.codes }}" rel="noopener">source</a>)</td><td>✅ Yes, with a confidence score, every plan</td></tr>
+        <tr><td>Wait until a message arrives</td><td>✅ The SDK <code>messages.get</code> call waits for a match, 10 seconds by default (<a href="{{ src.wait }}" rel="noopener">source</a>)</td><td>✅ The REST call <code>messages/wait</code> blocks up to {{ ms.wait_max }}s, from any language or tool, every plan; the SDKs repeat it for you</td></tr>
+        <tr><td>How widely used</td><td>✅ About 2.5 million npm downloads of its SDK in the 30 days to 1 October 2026 (<a href="{{ src.downloads }}" rel="noopener">source</a>)</td><td>A new service with a small user base</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="choose-them">
+  <h2>When to choose Mailosaur</h2>
+  <ul class="docs-steps">
+    <li>You need to test SMS codes as well as email.</li>
+    <li>You want email previews across Gmail, Outlook and mobile clients.</li>
+    <li>Your company needs Single Sign-On, a dedicated account manager or custom contract terms.</li>
+    <li>You want an established, widely used product with a large user base.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="choose-mailsocket">
+  <h2>When to choose mailsocket</h2>
+  <ul class="docs-steps">
+    <li>You only need email, and you want to start on a free plan with no trial clock.</li>
+    <li>You want month-to-month billing from {{ ms.pro.price }}.</li>
+    <li>You want one REST call that blocks until the OTP or magic link arrives, from any language or tool, with or without an SDK.</li>
+    <li>You want new mail pushed to you: a Server-Sent Events stream on every plan{% if ms.webhooks_plan %}, and webhooks from the {{ ms.webhooks_plan.name }} plan{% endif %}.</li>
+    <li>An AI agent needs an inbox: there is an MCP server, and an agent can get an API key without a signup form.</li>
+  </ul>
+</section>
+
+{% include "dashboard/partials/_compare_footer.html" %}
+{% endblock %}

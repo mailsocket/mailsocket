@@ -1,0 +1,27 @@
+{% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
+{% if clear_result %}<section id="team-result" aria-live="polite" hx-swap-oob="innerHTML"></section>{% endif %}
+{% if seats %}<p class="usage-count team-seats" id="team-seats">Seats: {{ seats.used }} of {{ seats.total }} used <span class="muted">(you{% if seats.members %} + {{ seats.members }} member{{ seats.members|pluralize }}{% endif %}{% if seats.pending %} + {{ seats.pending }} pending invite{{ seats.pending|pluralize }}{% endif %})</span></p>{% endif %}
+<section class="card">
+  <h2>Members</h2>
+  <ul class="row-list">
+  {% for membership in memberships %}
+  <li><span class="truncate" title="{{ membership.user.email }}">{{ membership.user.email }}</span><span class="muted nowrap">joined {{ membership.created_at|date:"Y-m-d" }}</span>
+    <form method="post" action="{% url 'dashboard:team-member-revoke' membership.id %}" class="inline-form" hx-post="{% url 'dashboard:team-member-revoke' membership.id %}" hx-target="#team-rows" hx-swap="innerHTML" data-error-target="#team-result" hx-disabled-elt="find button" hx-confirm="Remove {{ membership.user.email }} from your team?">
+      {% csrf_token %}<button class="button secondary">Remove</button>
+    </form>
+  </li>
+  {% empty %}<li class="muted">No team members yet.</li>{% endfor %}
+  </ul>
+</section>
+<section class="card">
+  <h2>Pending invites</h2>
+  <ul class="row-list">
+  {% for invite in invites %}
+  <li><span class="truncate" title="{{ invite.email_normalized }}">{{ invite.email_normalized }}</span><span class="muted nowrap">expires {{ invite.expires_at|date:"Y-m-d" }}</span>
+    <form method="post" action="{% url 'dashboard:team-invite-revoke' invite.id %}" class="inline-form" hx-post="{% url 'dashboard:team-invite-revoke' invite.id %}" hx-target="#team-rows" hx-swap="innerHTML" data-error-target="#team-result" hx-disabled-elt="find button" hx-confirm="Revoke the invite for {{ invite.email_normalized }}?">
+      {% csrf_token %}<button class="button secondary">Revoke</button>
+    </form>
+  </li>
+  {% empty %}<li class="muted">No pending invites.</li>{% endfor %}
+  </ul>
+</section>

@@ -1,0 +1,44 @@
+{% extends "dashboard/docs_base.html" %}
+{% load signup_tags %}
+{% block eyebrow %}Guide · {{ tool }}{% endblock %}
+{% block h1 %}{{ title }}{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">{{ lead }}{% if slug != "playwright" %} The example calls the REST API directly; there is no {{ tool }} plugin to install.{% endif %}</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="setup">
+  <h2>Before you start</h2>
+  <ul class="docs-steps">
+    <li><strong>Create an inbox and an API key.</strong> <a href="{% signup_href %}">Start free</a>, verify your email, and open the dashboard. Your first inbox is created automatically, and you can create an API key in one click. Or use the <a href="{% url 'dashboard:docs' %}#sixty-seconds">60-second path</a> with no signup.</li>
+    <li><strong>Copy your inbox address.</strong> It is <code>&lt;routing_key&gt;@{{ mail_domain }}</code>. The inbox id (<code>inbox_…</code>) is not the routing key, so copy the full address from the dashboard.</li>
+    <li><strong>Point your signup form at that address.</strong> Replace <code>https://app.example.com/signup</code> and the selectors below with your real form.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="flow">
+  <h2>The flow</h2>
+  <ol class="docs-steps">
+    <li>Note the time just before you submit (the start point).</li>
+    <li>Submit the signup form with the mailsocket inbox address.</li>
+    <li>Call <code>GET /api/v1/inboxes/{id}/messages/wait</code> with <code>require=otp</code> and <code>since=</code> the start point, so an email that arrives before the wait call starts is still matched. It returns the OTP as soon as it arrives, or <code>204</code> after 25 seconds; on <code>204</code>, call again.</li>
+    <li>Assert the OTP is present and has the expected shape (for example 4 to 8 digits).</li>
+  </ol>
+</section>
+
+<section class="docs-section" id="code">
+  <h2>Copy-paste example</h2>
+  <p class="docs-note">Read your API key from the environment; never hardcode it. Set <code>MAILSOCKET_API_KEY</code>, <code>MAILSOCKET_INBOX_ID</code> and <code>MAILSOCKET_INBOX_ADDRESS</code> before running.</p>
+  <div class="docs-code-block">
+    <div class="landing-code-label">{{ tool }}</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code>{{ code }}</code></pre>
+  </div>
+  <div class="docs-callout">
+    {% if slug == "playwright" %}
+    <h3>Prefer the raw REST calls?</h3>
+    <p>A version with no SDK, calling the wait endpoint directly with Playwright's <code>APIRequestContext</code>, is at <a href="https://github.com/mailsocket/mailsocket-sdk/tree/main/examples/playwright"><code>examples/playwright/otp-signup.spec.ts</code></a>. All guides are listed in <a href="{% url 'dashboard:guides' %}">Guides</a>.</p>
+    {% else %}
+    <h3>Want the Playwright version too?</h3>
+    <p>A ready-to-copy Playwright spec is at <a href="https://github.com/mailsocket/mailsocket-sdk/tree/main/examples/playwright"><code>examples/playwright/otp-signup.spec.ts</code></a>, or see the <a href="{% url 'dashboard:guide' slug='playwright' %}">Playwright guide</a>. All guides are listed in <a href="{% url 'dashboard:guides' %}">Guides</a>.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

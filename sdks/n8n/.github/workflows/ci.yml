@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Cancel in-progress runs for the same branch/PR to avoid wasting CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: 'npm ci'
+
+      - name: Run lint
+        run: 'npm run lint'
+
+      - name: Run build
+        run: 'npm run build'
+
+      - name: Run tests
+        run: 'npm test'
+
+      - name: Pack the package
+        run: 'mkdir -p /tmp/pack && npm pack --pack-destination /tmp/pack'
+
+      # @n8n/scan-community-package's CLI only scans packages already
+      # published to npm (it fetches the tarball + npm-provenance
+      # attestation from the registry), so before the first publish there
+      # is nothing there to scan. This installs the scanner into an
+      # isolated temp directory (it pulls in its own pinned `typescript`
+      # alias, which conflicts with this project's own `tsc` bin if
+      # installed as a project devDependency) and runs its own exported
+      # `analyzePackage()` — the same rule set the CLI/`n8n-node lint`
+      # apply — against the just-packed local tarball. A dedicated Node
+      # 24 job below also runs it against the scanner's required runtime
+      # (its own `isolated-vm` dependency declares `engines.node
+      # >=24.0.0` and has no prebuilt binary for older Node ABIs, so
+      # installing it on Node 20/22 forces a native compile that fails
+      # in CI).
+      - name: Install the community-package scanner (isolated)
+        run: 'mkdir -p /tmp/scanner && npm install --no-save --ignore-scripts --prefix /tmp/scanner @n8n/scan-community-package'
+
+      - name: Scan the packed tarball for community-package compliance
+        run: 'node scripts/scan-community-package.mjs /tmp/pack/n8n-nodes-mailsocket-*.tgz /tmp/scanner/node_modules/@n8n/scan-community-package/scanner/scanner.mjs'
+
+  scan-community-package:
+    name: Community package scan (Node 24)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: 'npm ci'
+
+      - name: Run build
+        run: 'npm run build'
+
+      - name: Pack the package
+        run: 'mkdir -p /tmp/pack && npm pack --pack-destination /tmp/pack'
+
+      - name: Install the community-package scanner (isolated)
+        run: 'mkdir -p /tmp/scanner && npm install --no-save --ignore-scripts --prefix /tmp/scanner @n8n/scan-community-package'
+
+      - name: Scan the packed tarball for community-package compliance
+        run: 'node scripts/scan-community-package.mjs /tmp/pack/n8n-nodes-mailsocket-*.tgz /tmp/scanner/node_modules/@n8n/scan-community-package/scanner/scanner.mjs'

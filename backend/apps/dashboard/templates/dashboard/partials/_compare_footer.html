@@ -1,0 +1,7 @@
+{% load signup_tags %}<section class="docs-section" id="try">
+  <h2>Try mailsocket</h2>
+  <p>See it work without an account: the <a href="{% try_href %}">live demo</a> creates an inbox and waits for a code in your browser. When you are ready, <a href="{% signup_href %}">Start free</a> to get an API key.</p>
+  <p><a class="landing-button landing-button-primary" href="{% try_href %}">Try the demo</a> <a class="landing-button" href="{% signup_href %}">Start free</a></p>
+</section>
+
+<!--email_off--><p class="docs-note" id="out-of-date">Spotted something out of date? Email <a href="mailto:support@mailsocket.app">support@mailsocket.app</a>. See also: <a href="{% url 'dashboard:compare' %}">all comparisons</a>.</p><!--/email_off-->

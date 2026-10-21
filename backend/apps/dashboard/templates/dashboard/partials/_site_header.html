@@ -1,0 +1,24 @@
+{% load static %}
+<header class="site-header">
+  <nav class="site-nav" aria-label="Primary">
+    {% include "dashboard/partials/_brand.html" %}
+    {# QA #15: the checkbox IS the visible, focusable 36x36 menu control (drawn in CSS) — no 1px hidden input, no aria-hidden label. Zero-JS open/close via :checked ~ .links; screen readers announce the native checked state (no role=button: not allowed on a checkbox). app.js only adds Enter/Escape. #}
+    <input type="checkbox" id="site-nav-toggle" class="nav-toggle-input" aria-label="Menu" aria-controls="site-nav-links">
+    <div class="links" id="site-nav-links">
+      {% if request.resolver_match %}
+        {% with url_name=request.resolver_match.url_name %}
+        <a class="nav-link" href="{% url 'dashboard:docs' %}"{% if url_name == 'docs' or url_name == 'guide' or url_name == 'guides' or url_name == 'try-it' or url_name == 'faq' or url_name == 'versioning' %} aria-current="page"{% endif %}>Docs</a>
+        <a class="nav-link" href="{% url 'dashboard:api-reference' %}"{% if url_name == 'api-reference' or url_name == 'error-reference' %} aria-current="page"{% endif %}>API</a>
+        <a class="nav-link" href="{% url 'dashboard:pricing' %}"{% if url_name == 'pricing' %} aria-current="page"{% endif %}>Pricing</a>
+        <a class="nav-link" href="{% url 'dashboard:changelog' %}"{% if url_name == 'changelog' %} aria-current="page"{% endif %}>Changelog</a>
+        {% endwith %}
+      {% else %}
+        <a class="nav-link" href="{% url 'dashboard:docs' %}">Docs</a>
+        <a class="nav-link" href="{% url 'dashboard:api-reference' %}">API</a>
+        <a class="nav-link" href="{% url 'dashboard:pricing' %}">Pricing</a>
+        <a class="nav-link" href="{% url 'dashboard:changelog' %}">Changelog</a>
+      {% endif %}
+      <a class="signin" href="{{ DASH_ORIGIN }}{% url 'accounts:login' %}">Sign in</a>
+    </div>
+  </nav>
+</header>

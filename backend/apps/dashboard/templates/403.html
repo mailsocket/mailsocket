@@ -1,0 +1,31 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <meta name="robots" content="noindex">
+  <title>403 · Forbidden · mailsocket</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+</head>
+<body class="landing-body">
+  <div class="landing-shell error-shell">
+    <main class="error-page">
+      <a class="brand" href="/">
+        <img class="brand-mark" src="{% static 'dashboard/mark.svg' %}" alt="" width="22" height="22">
+        <span>mailsocket</span>
+      </a>
+      <p class="error-code">403</p>
+      <h1>Access forbidden</h1>
+      <p class="error-lead">You don't have permission to view this page. If you were signed out, sign in and try again.</p>
+      {% if request.request_id %}<p class="error-ref">Reference: <code>{{ request.request_id }}</code></p>{% endif %}
+      <div class="error-actions">
+        <a class="landing-button landing-button-primary" href="/login/">Sign in</a>
+        <a class="landing-button" href="/">Back to home</a>
+        <a class="landing-button" href="/feedback/?{% if request.request_id %}rid={{ request.request_id|urlencode }}&amp;{% endif %}from={{ request.path|urlencode }}">Report this problem</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

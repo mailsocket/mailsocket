@@ -1,0 +1,65 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}Live status of the mailsocket website, API, inbound mail, wait endpoint and MCP server, with daily uptime from our own checks and an incident log.{% endblock %}
+{% block layout_modifier %} status-layout{% endblock %}
+{% block docs_nav %}{% endblock %}
+{% block eyebrow %}Status{% endblock %}
+{% block h1 %}System status{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Each component is checked every 5 minutes from inside our network. The page updates at most once a minute. Machine-readable: <a class="status-json-link" href="{% url 'status:json' %}">/status.json</a>.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section status-overall status-{{ overall_state }}" id="current" aria-labelledby="status-overall-label">
+  <p class="status-overall-label" id="status-overall-label"><span class="status-dot" aria-hidden="true"></span>{{ overall_label }}</p>
+  {% if affected and overall_state != "unknown" %}<p class="status-affected">Affected: {{ affected|join:", " }}</p>{% endif %}
+  <p class="status-generated">As of <time datetime="{{ generated_at|date:'c' }}">{{ generated_at|date:"Y-m-d H:i" }} UTC</time></p>
+</section>
+
+<section class="docs-section" id="components">
+  <h2>Components</h2>
+  <ul class="status-components">
+    {% for c in components %}
+    <li class="status-component status-{{ c.state }}">
+      <div class="status-component-head">
+        <h3>{{ c.name }}</h3>
+        <span class="status-pill"><span class="status-dot" aria-hidden="true"></span>{{ c.state_label }}</span>
+      </div>
+      {% if c.days %}
+      <ol class="status-bars" aria-label="{{ c.name }}: daily uptime, oldest first">
+        {% for d in c.days %}<li class="status-bar status-bar-{{ d.level }}" title="{{ d.label }}"><span class="visually-hidden">{{ d.label }}</span></li>{% endfor %}
+      </ol>
+      <p class="status-bars-legend">
+        <span>{{ c.span_label }}</span>
+        <span>{{ c.uptime_display }} uptime{% if c.total %} ({{ c.ok }}/{{ c.total }} checks){% endif %}</span>
+        <span>Today</span>
+      </p>
+      {% else %}
+      <p class="status-empty">No checks recorded yet.</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if components.0.days %}<p class="status-note">Bars show one day each (UTC), up to the last {{ history_days }} days; we only show days we have checks for. Green: every check passed. Amber: at least 95% passed. Red: below 95%. Grey: no checks that day. "Down" means the last two checks both failed; one failed check shows as "Degraded".</p>{% endif %}
+</section>
+
+<section class="docs-section" id="incidents">
+  <h2>Incidents</h2>
+  {% if incidents %}
+  <ul class="status-incidents">
+    {% for i in incidents %}
+    <li class="status-incident">
+      <div class="status-incident-head">
+        <h3>{{ i.title }}</h3>
+        <span class="status-incident-state status-incident-{{ i.status }}">{{ i.get_status_display }}</span>
+      </div>
+      <p class="status-incident-time">
+        <span class="status-when">Started <time datetime="{{ i.started_at|date:'c' }}">{{ i.started_at|date:"Y-m-d H:i" }} UTC</time></span>{% if i.resolved_at %} · <span class="status-when">Resolved <time datetime="{{ i.resolved_at|date:'c' }}">{{ i.resolved_at|date:"Y-m-d H:i" }} UTC</time></span>{% endif %}
+      </p>
+      {% if i.body %}{{ i.body|linebreaks }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No incidents reported.</p>
+  {% endif %}
+  <p class="status-note">Something broken that is not listed here? Email <a href="mailto:support@mailsocket.app">support@mailsocket.app</a>.</p>
+</section>
+{% endblock %}

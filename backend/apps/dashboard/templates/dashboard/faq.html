@@ -1,0 +1,56 @@
+{% extends "dashboard/docs_base.html" %}
+{% block eyebrow %}FAQ{% endblock %}
+{% block h1 %}Frequently asked questions{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Straight answers about how mailsocket receives, parses and deletes mail.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="retention">
+  <h2>How long is mail kept?</h2>
+  <p>Messages are purged from the live database after the retention window of your plan: {% for tier in retention_tiers %}{{ tier.retention_display }} on {{ tier.name }}{% if not tier.available %} (not on sale yet){% endif %}{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}. A scheduled purge permanently deletes committed messages after the applicable window. Database backups may retain deleted messages for up to 14 days, and undelivered mail may sit in the mail queue for up to 5 days before final deletion.</p>
+</section>
+
+<section class="docs-section" id="otp">
+  <h2>What OTP formats are detected, and with what confidence?</h2>
+  <p>We extract candidate codes of 4 to 8 digits (or groups like <code>123-456</code>) and give each a heuristic score between 0 and 1 (<code>otp_confidence</code>; fixed rules, not a trained model). A candidate near a verification keyword (such as <code>code</code>, <code>OTP</code>, <code>verification</code>, <code>passcode</code>, <code>PIN</code>) scores <code>0.95</code>; an unlabelled numeric candidate scores <code>0.35</code>. Order numbers, invoice totals, ZIP codes, phone numbers and years are rejected. Pass <code>min_confidence</code> to the wait endpoint to only accept codes above a threshold.</p>
+</section>
+
+<section class="docs-section" id="magic-links">
+  <h2>Do you follow magic links?</h2>
+  <p>No. We extract the most likely magic link from the message body and return it in the <code>magic_link</code> field. We never click or follow it; your test opens the link.</p>
+</section>
+
+<section class="docs-section" id="rate-limits">
+  <h2>What are the rate limits?</h2>
+  <p>Each API key can make {{ rate_per_minute }} requests per minute and {{ rate_per_hour }} per hour on every plan. Concurrent waits per account: {% for tier in wait_tiers %}{{ tier.concurrent_waits }} {{ tier.name }}{% if not forloop.last %} / {% endif %}{% endfor %}. Details and headers are in the <a href="{% url 'dashboard:api-reference' %}#rate-limits">API reference</a>.</p>
+</section>
+
+<section class="docs-section" id="loss">
+  <h2>What happens to mail if mailsocket is down?</h2>
+  <p>Our mail server accepts a message only after it has been stored in the database. If storing fails, the message stays in the mail server's queue and delivery is retried for up to 5 days. If our mail server itself is unreachable, the sending server keeps the message and retries, as SMTP requires. A wait that is open during an outage returns an error or <code>204</code>; call it again once the API responds.</p>
+</section>
+
+<section class="docs-section" id="gdpr">
+  <h2>How do I erase my data (GDPR)?</h2>
+  <p>Delete your account from <a href="{{ DASH_ORIGIN }}{% url 'dashboard:settings' %}">Settings</a>. This permanently erases your account, inboxes and messages. Database backups may keep erased data for up to 14 days. For access or correction requests, email <a href="mailto:privacy@mailsocket.app">privacy@mailsocket.app</a>.</p>
+</section>
+
+<section class="docs-section" id="custom-domains">
+  <h2>Can I receive mail on my own domain?</h2>
+  <p>Yes, on {% for tier in domain_tiers %}{{ tier.name }} ({{ tier.domains_display }}){% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}. Add the domain, publish the TXT and MX records we show you, and once it is verified you can create inboxes on it. Catch-all (any address on the domain goes to one inbox) is Business only. See <a href="{% url 'dashboard:pricing' %}">pricing</a>.</p>
+</section>
+
+<section class="docs-section" id="report-a-problem">
+  <h2>How do I report a problem?</h2>
+  <p>Use <a href="{% url 'feedback:public' %}">Report a problem</a> (also in the footer, and in the dashboard sidebar when you are signed in). Include the <code>request_id</code> from the API error body or the reference shown on an error page, and the page you were on: that lets us find the request in our logs in seconds. A person reads every report and replies by email within 1 business day. Please don't paste API keys or one-time codes.</p>
+</section>
+
+<section class="docs-section" id="sms">
+  <h2>Do you support SMS?</h2>
+  <p>No. mailsocket receives email only.</p>
+</section>
+
+<section class="docs-section" id="attachments">
+  <h2>Do you return attachments?</h2>
+  <p>Not yet. We extract the subject, From/To/Cc, the plain-text and HTML bodies, the OTP and the magic link. Attachment bodies are skipped (never treated as message text) but are not returned as files.</p>
+</section>
+{% endblock %}

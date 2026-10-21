@@ -1,0 +1,134 @@
+{% extends "dashboard/docs_base.html" %}
+{% block eyebrow %}Changelog{% endblock %}
+{% block h1 %}Changelog{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">What we have shipped, newest first. Breaking API changes are announced here at least 90 days ahead; see <a href="{% url 'dashboard:versioning' %}">versioning</a>.</p>{% endblock %}
+
+{% block content %}
+{# QA #12: customer-facing titles only (no internal code names); each date is the date of the shipping commit (git log). #}
+<section class="docs-section" id="changelog">
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-10-02">2 October 2026</time> Docs: security, versioning and limits</h2>
+    <p>New <a href="{% url 'dashboard:security' %}">Security</a> page (hosting, encryption, retention, subprocessors, how to report a vulnerability) and a <a href="{% url 'dashboard:security-txt' %}">security.txt</a>. New <a href="{% url 'dashboard:versioning' %}">versioning policy</a>: v1 changes are additive only, and breaking changes get at least 90 days' notice. The API reference now lists per-key rate limits, and the quickstart has a 60-second path that needs no signup.</p>
+    <p>Outbound sending endpoints, which are not available, were removed from the public reference and OpenAPI spec.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-10-01">1 October 2026</time> MCP server 0.2.3: since on wait tools</h2>
+    <p><code>wait_for_otp</code> and <code>wait_for_link</code> accept an optional <code>since</code> (ISO 8601, unix seconds or a message id), so a reused inbox returns the new code instead of an older one. Results now include the message <code>id</code> and <code>received_at</code>, which you can pass as <code>since</code> on the next call.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-10-01">1 October 2026</time> Python and TypeScript SDK 0.1.3, MCP server 0.2.2</h2>
+    <p>The TypeScript SDK (<code>mailsocket-sdk</code>) ships a CommonJS build next to ESM, so <code>require("mailsocket-sdk")</code> works. The Python SDK (<code>mailsocket</code>) rejects an empty id, <code>.</code> or <code>..</code> before sending a request, matching the TypeScript SDK. MCP server 0.2.2 requires <code>mailsocket&gt;=0.1.3</code>.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-10-01">1 October 2026</time> Security fixes</h2>
+    <p>Suspending a user now also blocks their team memberships, the workspaces they own, their API keys and catch-all delivery. Password reset is refused for accounts that have no login (agent and workspace accounts). Accepting a team invite now counts only current members, so every paid seat can be filled.</p>
+  </article>
+
+  <h2 class="changelog-group" id="launch-week">Launch week, 22 to 30 September 2026</h2>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> Python and TypeScript SDK 0.1.2, MCP server 0.2.0 and 0.2.1</h2>
+    <p>Both SDKs accept extra request headers and URL-encode ids. The TypeScript SDK rejects empty, <code>.</code> and <code>..</code> ids and uses whole-millisecond abort timeouts. MCP server 0.2.0 adds the remote server below; 0.2.1 removes request paths from its access logs.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> Business plan now available</h2>
+    <p>You can now buy the Business plan yourself for {{ business_plan.price }} from <a href="{% url 'dashboard:pricing' %}">Pricing</a> or the Billing page in your dashboard. It includes {{ business_plan.inboxes }} inboxes, {{ business_plan.messages_per_month }} messages a month, {{ business_plan.retention_days }}-day retention and {{ business_plan.wait_concurrency }} concurrent waits, plus custom domains, catch-all addresses and team seats. Current limits are always on <a href="{% url 'dashboard:pricing' %}">Pricing</a>.</p>
+    <p>If you already pay for Pro or Scale, upgrading changes your current subscription and does not start a second one. You are charged the prorated difference right away.</p>
+    <p>Enterprise is now arranged through our sales team at <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off-->. Pricing is custom.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> Remote MCP server</h2>
+    <p>The MCP tools (<code>create_inbox</code>, <code>wait_for_otp</code>, <code>wait_for_link</code> and the rest) are now also hosted at <code>https://mcp.mailsocket.app/mcp</code> over Streamable HTTP, with no install. Send your API key as an <code>Authorization: Bearer</code> header on every request; putting it in the URL is rejected. Remote waits cap at 55 seconds per call (call again if nothing has arrived yet), and the server is stateless with per-key concurrency limits.</p>
+    <p>Works today with Claude Code, Cursor and VS Code. Claude.ai, Claude Desktop connectors and Smithery need OAuth, which is planned but not available yet. Use the local stdio server in those clients for now.</p>
+    <p>See <a href="{% url 'dashboard:docs' %}#sdks">SDKs &amp; MCP server</a>.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> Stricter API input validation</h2>
+    <p>Three API responses change. Clients that send only documented values are not affected, and that includes our SDKs, the MCP server and the n8n node.</p>
+    <ul>
+      <li><code>GET /api/v1/inboxes/{id}/messages/wait</code> and <code>GET /api/v1/inboxes/{id}/stream</code>: an unknown <code>require</code> value, such as <code>OTP</code> or <code>links</code>, now returns <code>422 validation_error</code>. It is no longer silently treated as the default. Allowed values are <code>otp</code>, <code>link</code> and <code>any</code>. Omitting <code>require</code> still uses the default.</li>
+      <li><code>POST /api/v1/domains</code> on a plan without custom domains now returns <code>403 domain_entitlement_required</code> before the request body is checked. See <a href="{% url 'dashboard:api-reference' %}#plan-gating">plan gating</a>. Listing domains still returns an empty list.</li>
+      <li><code>PATCH /api/v1/messages/{id}</code> accepts only <code>read</code>. Any other field now returns <code>422 validation_error</code> naming that field, even when <code>read</code> is also sent, and nothing is changed.</li>
+    </ul>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> SDKs 0.1.1, MCP Registry listing and n8n node</h2>
+    <p>The Python SDK (<code>mailsocket</code>), TypeScript SDK (<code>mailsocket-sdk</code>) and MCP server (<code>mailsocket-mcp</code>) were released as 0.1.1, with clearer READMEs, tool annotations, and paginated list tools in the MCP server.</p>
+    <p>The MCP server is listed in the official MCP Registry as <code>app.mailsocket/mailsocket-mcp</code>.</p>
+    <p>The new n8n community node, <code>n8n-nodes-mailsocket</code>, can create an inbox, wait for an OTP or link, get the latest message, list messages and delete an inbox.</p>
+    <p>See <a href="{% url 'dashboard:docs' %}#sdks">SDKs &amp; MCP server</a>.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> Fix: OTPs available the instant mail arrives</h2>
+    <p>We fixed a regression where a new message's OTP and magic link could take up to about a minute to appear on <code>messages/wait</code>. Messages are now parsed again as soon as they are received.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-26">26 September 2026</time> Mark read, batch operations and webhook test</h2>
+    <p>There are three new endpoints:</p>
+    <ul>
+      <li><code>PATCH /api/v1/messages/{id}</code> marks a message read or unread.</li>
+      <li><code>POST /api/v1/messages/batch</code> marks as read, deletes or fetches up to 100 messages in one call, on paid plans.</li>
+      <li><code>POST /api/v1/inboxes/{id}/webhook/test</code> sends one signed test delivery, so you can check your receiver before enabling it.</li>
+    </ul>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-25">25 September 2026</time> Server-Sent Events stream</h2>
+    <p><code>GET /api/v1/inboxes/{id}/stream</code> pushes each new matching message as an SSE event. It is an alternative to the <code>messages/wait</code> long-poll, uses the same <code>require</code> filter and sends heartbeats while it waits.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-23">23 September 2026</time> OpenAPI spec + message search/filter</h2>
+    <p>A machine-readable OpenAPI 3.1 contract (<a href="{% url 'dashboard:openapi-yaml' %}">/docs/openapi.yaml</a>) validated in CI, plus shared message filtering (<code>has_otp</code>, <code>subject_contains</code> and <code>from</code>) across the REST API and the dashboard.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-23">23 September 2026</time> API-key cap</h2>
+    <p>An account can have at most 20 active API keys, and key creation is rate-limited per hour.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-23">23 September 2026</time> Public docs + quickstart</h2>
+    <p>The public <a href="{% url 'dashboard:docs' %}">quickstart</a> and this reference set, plus a copy-paste Playwright example (<a href="https://github.com/mailsocket/mailsocket-sdk/tree/main/examples/playwright"><code>examples/playwright/otp-signup.spec.ts</code></a>) that awaits an OTP over the wait endpoint.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-23">23 September 2026</time> OTP-first landing page</h2>
+    <p>The landing page now leads with the core use case: "Wait for the OTP. One API call.", with a live curl and Python sample for the wait endpoint.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-23">23 September 2026</time> Onboarding</h2>
+    <p>After signup, your first inbox and a welcome message are created automatically, and the dashboard offers a one-click API key with ready-to-run code snippets.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-23">23 September 2026</time> Wait for an OTP or magic link</h2>
+    <p>The <code>messages/wait</code> long-poll: one call blocks until the OTP or magic link arrives, instead of a polling loop.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-22">22 September 2026</time> REST API v1</h2>
+    <p>Bearer-authenticated REST API: inboxes, message listing and retrieval, cursor pagination and per-key rate limits.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-22">22 September 2026</time> Signed webhooks</h2>
+    <p>Webhooks delivered over HTTPS to public addresses only, signed with a per-webhook HMAC secret.</p>
+  </article>
+
+  <article class="changelog-entry">
+    <h2><time class="changelog-date" datetime="2026-09-22">22 September 2026</time> Inbound email</h2>
+    <p>Inbound mail: our mail server stores each message before accepting it, then extracts OTPs and magic links. If the app is down, mail stays queued and delivery is retried.</p>
+  </article>
+</section>
+{% endblock %}

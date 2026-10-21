@@ -1,0 +1,62 @@
+{% comment %}
+uxfix F6/F14: the ONE copy-paste wait snippet (curl + Python) for the dashboard.
+Params: ws_base (API base, settings.PUBLIC_BASE_URL — same as the docs),
+ws_inbox (an owned Inbox), ws_curl_id / ws_python_id (element ids for Copy),
+ws_token (optional: the just-created key, onboarding only; otherwise the
+snippets read $MAILSOCKET_API_KEY), ws_guides + ws_apex (optional: show the
+Playwright / SDK / MCP links, absolute on the apex host; Overview only). The Python loop long-polls (at most 25 s
+per call, same as the docs, and never past the ~60 s deadline) until a code
+arrives, then says what to do; it prints one line at start so a
+first run is never silent (ux3 N6). The FIRST call sends no `since`: the API
+default (request start) means only mail that arrives AFTER the snippet starts
+is returned, so an older code (e.g. the welcome mail) is never printed (uxfix
+r2 P1). After a 204 the loop sends the `Mailsocket-Wait-Since` response header
+back as `since` (activation item 1), so a code landing in the gap between two
+calls is still matched. `# pip install requests` heads the block: requests is
+not in the standard library.
+{% endcomment %}<p class="hint">Run this, then click <strong>Send a test code</strong> (or send any email with a code to <code>{{ ws_inbox.address }}</code>).</p>
+  <div class="snippet">
+    <div class="snippet-label">curl</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code id="{{ ws_curl_id }}">curl "{{ ws_base }}/api/v1/inboxes/{{ ws_inbox.public_id }}/messages/wait?require=otp&amp;timeout=25" \
+  -H "Authorization: Bearer {% if ws_token %}{{ ws_token }}{% else %}$MAILSOCKET_API_KEY{% endif %}"</code></pre>
+    <button type="button" class="copy" data-copy-target="{{ ws_curl_id }}">Copy</button>
+  </div>
+  <div class="snippet">
+    <div class="snippet-label">Python</div>
+    <pre tabindex="0" role="region" aria-label="Code example"><code id="{{ ws_python_id }}"># pip install requests
+import os
+import time
+
+import requests
+
+API_KEY = {% if ws_token %}"{{ ws_token }}"{% else %}os.environ["MAILSOCKET_API_KEY"]{% endif %}
+print("Waiting up to 60 s for a code to {{ ws_inbox.address }}… (click \"Send a test code\" now)")
+deadline = time.monotonic() + 60
+otp = None
+since = None  # first call: only mail that arrives after it starts
+while otp is None and time.monotonic() &lt; deadline:
+    wait = max(1, min(25, int(deadline - time.monotonic())))
+    params = {"require": "otp", "timeout": wait}
+    if since:
+        params["since"] = since
+    resp = requests.get(
+        "{{ ws_base }}/api/v1/inboxes/{{ ws_inbox.public_id }}/messages/wait",
+        params=params,
+        headers={"Authorization": f"Bearer {API_KEY}"},
+        timeout=wait + 10,
+    )
+    if resp.status_code == 200:
+        otp = resp.json()["data"]["otp"]
+    elif resp.status_code != 204:  # 204 = no code yet, wait again
+        resp.raise_for_status()
+    else:  # keep the server's cutoff so a code landing between calls is not missed
+        since = resp.headers.get("Mailsocket-Wait-Since") or since
+
+if otp:
+    print(otp)
+else:
+    print("No code yet. Run this again, then send an email with a code to {{ ws_inbox.address }}.")</code></pre>
+    <button type="button" class="copy" data-copy-target="{{ ws_python_id }}">Copy</button>
+  </div>
+  {# activation item 1: the other first-run paths (Playwright, SDKs, MCP) were only reachable via the public docs. #}
+  {% if ws_guides %}<p class="hint">Using Playwright, an SDK or an AI agent? <a href="{{ ws_apex }}{% url 'dashboard:guide' slug='playwright' %}">Playwright guide</a> · <a href="{{ ws_apex }}{% url 'dashboard:docs' %}#sdks">Python &amp; TypeScript SDKs</a> · <a href="{{ ws_apex }}{% url 'dashboard:docs' %}#mcp">MCP server</a></p>{% endif %}

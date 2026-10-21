@@ -1,0 +1,1 @@
+<span id="inbox-usage-count" class="usage-count"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>{{ usage.inbox_count|floatformat:"g" }} of {{ usage.inbox_limit|floatformat:"g" }} inboxes used.</span>

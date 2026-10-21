@@ -1,0 +1,16 @@
+{% with url_name=request.resolver_match.url_name %}
+<nav class="docs-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="{% url 'dashboard:docs' %}"{% if url_name == 'docs' %} aria-current="page"{% endif %}>Quickstart</a></li>
+    <li><a href="{% url 'dashboard:guides' %}"{% if url_name == 'guides' or url_name == 'guide' %} aria-current="page"{% endif %}>Guides</a></li>
+    <li><a href="{% url 'dashboard:api-reference' %}"{% if url_name == 'api-reference' %} aria-current="page"{% endif %}>API reference</a></li>
+    <li><a href="{% url 'dashboard:error-reference' %}"{% if url_name == 'error-reference' %} aria-current="page"{% endif %}>Errors</a></li>
+    <li><a href="{% url 'dashboard:docs' %}#sdks">SDKs</a></li>
+    <li><a href="{% url 'dashboard:versioning' %}"{% if url_name == 'versioning' %} aria-current="page"{% endif %}>Versioning</a></li>
+    <li><a href="{% url 'dashboard:changelog' %}"{% if url_name == 'changelog' %} aria-current="page"{% endif %}>Changelog</a></li>
+    <li><a href="{% url 'dashboard:faq' %}"{% if url_name == 'faq' %} aria-current="page"{% endif %}>FAQ</a></li>
+    <li><a href="{% url 'dashboard:compare' %}"{% if url_name == 'compare' or url_name|slice:":8" == 'compare-' %} aria-current="page"{% endif %}>Compare</a></li>
+    <li><a href="{% url 'dashboard:security' %}"{% if url_name == 'security' %} aria-current="page"{% endif %}>Security</a></li>
+  </ul>
+</nav>
+{% endwith %}

@@ -1,0 +1,14 @@
+{% comment %}
+Reusable monoline icon set for mailsocket. All icons are original hand-drawn
+geometry, stroke="currentColor" so they inherit the surrounding accent color,
+aria-hidden by default (decorative). Usage:
+  {% include "dashboard/partials/_icons.html" with icon="wait" %}
+Available: wait (hourglass), agents (bot), braces (REST/webhooks).
+{% endcomment %}
+{% if icon == "wait" %}
+<svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h10M7 21h10M7 3l5 9 5-9M7 21l5-9 5 9"/></svg>
+{% elif icon == "agents" %}
+<svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M19.5 12h2.5M2 12h2.5M17.3 17.3l1.8 1.8M4.9 17.3l-1.8 1.8M17.3 6.7l1.8-1.8M4.9 6.7L3.1 4.9"/></svg>
+{% elif icon == "braces" %}
+<svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 4a3 3 0 0 0-3 3c0 1.4 1 2.3 2.5 3a3 3 0 0 1 0 4C5 14.7 4 15.6 4 17a3 3 0 0 0 3 3"/><path d="M17 4a3 3 0 0 1 3 3c0 1.4-1 2.3-2.5 3a3 3 0 0 0 0 4c1.5.7 2.5 1.6 2.5 3a3 3 0 0 1-3 3"/></svg>
+{% endif %}

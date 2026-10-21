@@ -1,0 +1,21 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}How mailsocket compares with Mailpit, Mailosaur and AgentMail: what each one is for, prices and features, with sources.{% endblock %}
+{% block eyebrow %}Compare{% endblock %}
+{% block h1 %}Compare mailsocket{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Honest comparisons with tools people often ask about, including where they are the better choice.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="comparisons">
+  <p class="docs-note">Checked {{ checked }}. Prices and features change; each page links to the other company's own pages as the source.</p>
+  <ul class="docs-guide-list">
+    {% for c in comparisons %}
+    <li>
+      <a href="{% url c.url_name %}">{{ c.title }}</a>
+      <p>{{ c.summary }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<p class="docs-note" id="out-of-date">Spotted something out of date? Email <a href="mailto:support@mailsocket.app">support@mailsocket.app</a>.</p>
+{% endblock %}

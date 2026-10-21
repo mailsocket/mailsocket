@@ -1,0 +1,1 @@
+{% for flash in flashes %}<div class="flash{% if flash.is_error %} flash-error{% endif %}" role="{% if flash.is_error %}alert{% else %}status{% endif %}">{{ flash.text }}</div>{% endfor %}

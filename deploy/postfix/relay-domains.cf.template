@@ -1,0 +1,10 @@
+# Runtime shape only; entrypoint writes /etc/postfix/relay-domains.cf mode 0640.
+# Credentials come from the deployment environment and are never baked into the image.
+#  (BYOD): relay_domains for the shared apex stays a static
+# literal in main.cf ("in.inboxpipe.net"); this pgsql map ADDS verified
+# custom domains, queried per-connect with zero reload/deploy per domain.
+hosts = db
+user = <POSTFIX_DB_READER_USER>
+password = <POSTFIX_DB_READER_PASSWORD>
+dbname = <DB_NAME>
+query = SELECT name FROM domains_domain WHERE name = '%s' AND status = 'verified'

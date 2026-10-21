@@ -1,0 +1,39 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}How the mailsocket API is versioned, what counts as a breaking change, and how much notice you get before one.{% endblock %}
+{% block eyebrow %}API reference{% endblock %}
+{% block h1 %}Versioning and deprecation{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">The API is versioned in the URL. Within a version we only add things, and we give notice before anything is removed or changed.</p>{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="v1">
+  <h2>v1 is additive only</h2>
+  <p>Everything under <code>/api/v1</code> follows these rules. Changes we can make at any time, without notice:</p>
+  <ul class="docs-steps">
+    <li>New endpoints.</li>
+    <li>New optional request parameters or body fields.</li>
+    <li>New fields in responses. Ignore fields you do not recognise.</li>
+    <li>New error codes. Handle unknown codes by their HTTP status.</li>
+    <li>Changes to error <code>message</code> text. Match on <code>error.code</code>, not the message.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="breaking">
+  <h2>Breaking changes</h2>
+  <p>A breaking change is anything that can make a correct client fail: removing or renaming an endpoint, field or parameter, changing a type or default, making an optional input required, or changing the status code or error code for an existing case.</p>
+  <ul class="docs-steps">
+    <li>We announce it in the <a href="{% url 'dashboard:changelog' %}">changelog</a> at least <strong>90 days</strong> before it takes effect.</li>
+    <li>Affected responses carry a <code>Deprecation</code> header from the announcement, and a <code>Sunset</code> header with the date the old behaviour ends.</li>
+  </ul>
+  <p>The exception is a fix for a security issue, which may ship with shorter notice. It will still be recorded in the changelog.</p>
+</section>
+
+<section class="docs-section" id="history">
+  <h2>History</h2>
+  <p>Before this policy was published, a validation change shipped on 30 September 2026 without a notice period (unknown <code>require</code> values and extra <code>PATCH</code> fields now return <code>422</code>). It is listed in the <a href="{% url 'dashboard:changelog' %}">changelog</a>. Changes since then follow the rules above.</p>
+</section>
+
+<section class="docs-section" id="sdks">
+  <h2>SDKs</h2>
+  <p>The Python and TypeScript SDKs and the MCP server follow semantic versioning. While they are below 1.0, a minor version (0.x) may contain breaking changes; each one is noted in the package changelog and in ours.</p>
+</section>
+{% endblock %}

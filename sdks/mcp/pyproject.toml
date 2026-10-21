@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mailsocket-mcp"
+version = "0.4.1"
+description = "MCP server exposing mailsocket inboxes + wait-for-OTP to AI agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "mailsocket" }]
+keywords = ["mailsocket", "mcp", "email", "otp", "inbox", "magic-link"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Email",
+]
+dependencies = [
+    "mailsocket>=0.3.1",  # published on PyPI as `mailsocket` (0.3.1: wait loop sends the server cursor; 0.3.0: Client.send_test_code; 0.2.0: since defaults to omitted — see CHANGELOG)
+    "mcp>=2.0,<3.0",
+]
+
+[project.scripts]
+mailsocket-mcp = "mailsocket_mcp.server:main"
+mailsocket-mcp-http = "mailsocket_mcp.remote:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://mailsocket.app"
+Documentation = "https://dash.mailsocket.app/docs/"
+Source = "https://github.com/mailsocket/mailsocket-sdk/tree/main/mcp"
+Issues = "https://github.com/mailsocket/mailsocket-sdk/issues"
+
+[tool.setuptools]
+packages = ["mailsocket_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "../python"]

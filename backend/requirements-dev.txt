@@ -1,0 +1,29 @@
+pytest==9.1.1
+pytest-django==4.14.0
+pytest-cov==7.1.0
+# scripts/check.sh runs the suite in a random order with a printed seed
+# (audit 2026-10-11 T3-V2: order-dependent tests). Reproduce: --randomly-seed=<n>.
+pytest-randomly==5.0.0
+pyyaml==6.0.3
+# apps/api/tests/test_ux4_docs_runnable.py imports it (runs the docs sample).
+requests==2.34.2
+# Gate tooling (scripts/check.sh). Bumping ruff can change the hit counts in
+ruff==0.16.10
+# Transitive dev deps pinned to fixed versions (osv: pygments PYSEC-2023-117 /
+# GHSA-5239-wwwm-4pmq via pytest; idna PYSEC-2026-215 via requests).
+pygments==2.21.0
+idna==3.20
+# backend/.importlinter. BSD-2-Clause, release 2026-09 (deps grimp, click, rich).
+import-linter==2.15
+# dashboard/app.min.css == rcssmin(app.css). Apache-2.0, pure-Python fallback,
+# release 2025-10. Dev/CI only: the image never minifies (no Node, no build step).
+rcssmin==1.2.2
+# dashboard/*.min.js == rjsmin(source). Apache-2.0, pure-Python fallback, dev/CI only.
+rjsmin==1.2.5
+# Changed-line coverage (framework V6): scripts/check.sh step 4b reads the
+# coverage XML of the single suite run. Apache-2.0, release 2026-09.
+diff-cover==10.6.0
+# mypy or the stubs can change the error count: fix to 0 in the same commit.
+mypy==2.4.0
+django-stubs==6.1.2
+djangorestframework-stubs==3.18.1

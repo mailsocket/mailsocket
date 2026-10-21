@@ -1,0 +1,44 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Overview · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Overview</h1><p>Your inbound email at a glance.</p></div><a class="button" href="{% url 'dashboard:inboxes' %}">Create inbox</a></header>
+<div class="stats stats-4">
+  <section class="card"><span>Inboxes</span><strong>{{ usage.inbox_count|floatformat:"g" }} <small>/ {{ usage.inbox_limit|floatformat:"g" }}</small></strong><small>{{ active_count|floatformat:"g" }} active · Webhooks {{ usage.can_enable_webhook|yesno:'enabled,not included' }}</small></section>
+  <section class="card"><span>Messages stored</span><strong>{{ message_count|floatformat:"g" }}</strong><small>Across all inboxes</small></section>
+  <section class="card"><span>Messages this month</span><strong>{{ usage.messages_received|floatformat:"g" }} <small>/ {{ usage.message_limit|floatformat:"g" }}</small></strong><small>{% if usage.limit_exceeded %}Soft limit exceeded — inbound mail is still accepted, but you are over this period's message allowance.{% else %}Resets each UTC calendar month.{% endif %}</small></section>
+  <section class="card"><span>Plan</span><strong>{{ usage.plan.display_name }}</strong><small>Status: {{ usage.plan.get_status_display }}</small></section>
+</div>
+{% if not has_api_key and primary_inbox %}
+<section id="onboarding-card" class="card onboarding">
+  <div class="section-head"><h2>Get started in one click</h2></div>
+  <p>Your first inbox is ready at <code id="onboarding-address">{{ primary_inbox.address }}</code> <button type="button" class="copy" data-copy-target="onboarding-address">Copy</button></p>
+  {# activation item 1: the order matters. The snippet only returns mail that arrives after it starts, so a test code sent BEFORE running it is never printed. #}
+  <ol class="onboarding-steps">
+    <li>Create an API key to start fetching parsed messages and OTPs.</li>
+    <li>Run the snippet shown with your new key.</li>
+    <li>While it waits, click <strong>Send a test code</strong>. The snippet prints the code.</li>
+  </ol>
+  <p>No mail yet? Use <strong>Send a test code</strong> to drop a sample OTP into this inbox. It also shows under Recent messages below.</p>
+  <div id="onboarding-error" aria-live="polite"></div>
+  <form method="post" action="{% url 'dashboard:api-key-onboarding' %}" hx-post="{% url 'dashboard:api-key-onboarding' %}" hx-target="#onboarding-card" hx-swap="innerHTML" data-error-target="#onboarding-error" hx-disabled-elt="find button">
+    {% csrf_token %}<button class="button">Create API key</button>
+  </form>
+  <form class="inline-form test-code-form" method="post" action="{% url 'dashboard:inbox-test-code' primary_inbox.public_id %}" data-disable-on-submit>{% csrf_token %}<input type="hidden" name="return_to" value="overview"><button class="button secondary" title="Puts a sample code straight into this inbox (does not go through the mail server).">Send a test code</button></form>
+</section>
+{% elif has_api_key and primary_inbox %}
+<section class="card">
+  <div class="section-head"><h2>Your inbox</h2></div>
+  <p><code id="onboarding-address">{{ primary_inbox.address }}</code> <button type="button" class="copy" data-copy-target="onboarding-address">Copy</button></p>
+  <p>Set your key first: <code>export MAILSOCKET_API_KEY=&lt;your key&gt;</code></p>
+  {% include 'dashboard/partials/wait_snippets.html' with ws_base=public_base_url ws_inbox=primary_inbox ws_curl_id="snippet-curl" ws_python_id="snippet-python" ws_guides=True ws_apex=APEX_ORIGIN only %}
+  <form class="inline-form test-code-form" method="post" action="{% url 'dashboard:inbox-test-code' primary_inbox.public_id %}" data-disable-on-submit>{% csrf_token %}<input type="hidden" name="return_to" value="overview"><button class="button secondary" title="Puts a sample code straight into this inbox (does not go through the mail server).">Send a test code</button></form>
+</section>
+{% endif %}
+<section class="card">
+  <div class="section-head"><h2>Recent messages</h2><a href="{% url 'dashboard:messages' %}">View all</a></div>
+  <div id="recent-messages" hx-get="{% url 'dashboard:recent-messages' %}" hx-trigger="every 10s" hx-swap="innerHTML">
+    {% include 'dashboard/partials/message_rows.html' with messages=recent_messages %}
+  </div>
+</section>
+{% if not active_count %}<section class="onboarding"><h2>Create your first inbox</h2><p>Generate a private address, then send it an email.</p><a class="button" href="{% url 'dashboard:inboxes' %}">Get started</a></section>{% endif %}
+{% endblock %}

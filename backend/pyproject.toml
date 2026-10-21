@@ -1,0 +1,36 @@
+# Tool configuration only (ruff, mypy). Not a package: nothing here is built
+
+[tool.ruff]
+target-version = "py312"
+# Measured 2026-10-10 on backend/**/*.py (excl. migrations): p50 39, p95 86,
+# p99 106 chars. 110 keeps ~99% of existing lines legal; 88 would freeze
+# ~2,900 E501 hits into the baseline and make formatter diffs noisy.
+line-length = 110
+extend-exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+# Start small (framework V2,  wave 1). Existing hits are frozen in
+select = ["E", "F", "W", "B", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
+[tool.ruff.format]
+# Not enforced on old files. scripts/check.sh runs `ruff format --check` only
+# on files added since the merge-base, and on modified files that were
+# already formatter-clean at the merge-base (they must stay clean).
+quote-style = "double"
+
+# (scripts/quality/mypy_gate.py). Toolchain pinned in requirements-dev.txt
+# (mypy 2.4.0, django-stubs 6.1.2, djangorestframework-stubs 3.18.1). Run:
+#   cd backend && DB_NAME=x DB_USERNAME=x DB_PASS= DB_HOST=localhost DB_PORT=5432 \
+#   python -m mypy --no-incremental apps config
+# A `# type: ignore` needs an error code and a one-line reason.
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+exclude = ["/migrations/", "/\\.venv/"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.testing"

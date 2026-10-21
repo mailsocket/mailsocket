@@ -1,0 +1,98 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Fleet · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div><h1>Fleet</h1><p>System-wide operations. Counts only — no message content or secrets.</p></div>
+</header>
+{% if BILLING_CHANGES_PAUSED %}
+<div class="flash flash-error billing-paused-banner" role="alert"><strong>Billing changes paused</strong> — BILLING_CHANGES_ENABLED is off: checkout and plan changes are refused. Lemon Squeezy webhooks and the customer portal still work. Flip back: operations notes.</div>
+{% endif %}
+
+<div class="stats stats-4">
+  <section class="card"><span>Customers</span><strong>{{ customers_total|floatformat:"g" }}</strong><small>{{ customers_verified|floatformat:"g" }} verified · {{ customers_suspended|floatformat:"g" }} suspended</small></section>
+  <section class="card"><span>New (7 days)</span><strong>{{ customers_new_7d|floatformat:"g" }}</strong><small>Sign-ups this week</small></section>
+  <section class="card"><span>Messages today</span><strong>{{ messages_today|floatformat:"g" }}</strong><small>{{ messages_7d|floatformat:"g" }} in last 7 days</small></section>
+  <section class="card"><span>Messages stored</span><strong>{{ messages_total|floatformat:"g" }}</strong><small>All time</small></section>
+  <section class="card"><span>Inboxes</span><strong>{{ inboxes_active|floatformat:"g" }} <small>/ {{ inboxes_total|floatformat:"g" }}</small></strong><small>Active / total</small></section>
+  <section class="card"><span>API keys</span><strong>{{ api_keys_active|floatformat:"g" }}</strong><small>Active (non-revoked)</small></section>
+  <section class="card"><span>Webhooks</span><strong>{{ webhooks_active|floatformat:"g" }}</strong><small>Enabled</small></section>
+  <section class="card"><span>This month</span><strong>{{ usage_month_messages|floatformat:"g" }}</strong><small>{{ usage_month_api|floatformat:"g" }} API requests</small></section>
+</div>
+
+<div class="split-2">
+<section class="card">
+  <div class="section-head"><h2>Plans</h2></div>
+  {% if plan_rows %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table">
+    <thead><tr><th>Plan</th><th class="num-col">Accounts</th></tr></thead>
+    <tbody>
+      {% for row in plan_rows %}
+      <tr><td>{{ row.plan }}</td><td class="num-col num">{{ row.n|floatformat:"g" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>{% else %}<p class="empty-state">No plans yet.</p>{% endif %}
+</section>
+
+<section class="card">
+  <div class="section-head"><h2>Top customers by messages</h2></div>
+  {% if top_users %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table">
+    <thead><tr><th>Customer</th><th class="num-col">Messages</th></tr></thead>
+    <tbody>
+      {% for row in top_users %}
+      <tr><td class="truncate">{{ row.inbox__user__account__email_normalized|default:"—" }}</td><td class="num-col num">{{ row.n|floatformat:"g" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>{% else %}<p class="empty-state">No messages yet.</p>{% endif %}
+</section>
+</div>
+
+<section class="card">
+  <div class="section-head"><h2>Signups by source (last 30 days)</h2></div>
+  {% if signup_sources %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table">
+    <thead><tr><th>Source</th><th class="num-col">Signups</th><th class="num-col">Verified</th><th class="num-col">Paid</th></tr></thead>
+    <tbody>
+      {% for row in signup_sources %}
+      <tr><td class="truncate">{{ row.source }}</td><td class="num-col num">{{ row.signups|floatformat:"g" }}</td><td class="num-col num">{{ row.verified|floatformat:"g" }}</td><td class="num-col num">{{ row.paid|floatformat:"g" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>{% else %}<p class="empty-state">No signups in the last 30 days.</p>{% endif %}
+</section>
+
+<section class="card">
+  <div class="section-head"><h2>Wait capacity</h2></div>
+  <div class="stats">
+    <section class="card"><span>Global in flight</span><strong>{{ wait_global_now }} <small>/ {{ wait_global_limit }}</small></strong><small>WAIT_CAPACITY_LIMIT</small></section>
+    <section class="card"><span>Free/agent/demo in flight</span><strong>{{ wait_free_now }} <small>/ {{ wait_free_limit }}</small></strong><small>WAIT_CAPACITY_FREE_LIMIT</small></section>
+  </div>
+  {% if wait_days %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table">
+    <thead><tr><th>Date (UTC)</th><th class="num-col">Global peak</th><th class="num-col">Free peak</th><th class="num-col">Global refusals</th><th class="num-col">Free refusals</th></tr></thead>
+    <tbody>
+      {% for row in wait_days %}
+      <tr><td>{{ row.date|date:"Y-m-d" }}</td><td class="num-col num">{{ row.global_peak }}</td><td class="num-col num">{{ row.free_peak }}</td><td class="num-col num">{{ row.global_refusals }}</td><td class="num-col num">{{ row.free_refusals }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="muted"><small>Refusals = 429 wait_capacity (pool full; callers retry after 2s). Per-account caps are not counted. Email alerts at &ge; 80% and when full, at most hourly per pool and level.</small></p>
+</section>
+
+<section class="card" id="open-feedback">
+  <div class="section-head"><h2>Open feedback</h2><span class="muted">{{ feedback_open_total|floatformat:"g" }} open</span></div>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table">
+    <thead><tr><th>#</th><th>Created (UTC)</th><th>Plan</th><th>Page</th><th>Message</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for row in feedback_open %}
+      <tr>
+        <td class="num"><a href="{{ row.admin_url }}">#{{ row.pk }}</a></td>
+        <td class="num">{{ row.created_at|date:"Y-m-d H:i" }}</td>
+        <td>{{ row.plan }}</td>
+        <td class="truncate">{{ row.page_path|default:"—" }}</td>
+        <td class="feedback-preview">{{ row.preview }}</td>
+        <td>{{ row.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>{% else %}<p class="empty-state">No open reports.</p>{% endif %}
+  <p class="muted"><small>Answer by email, then mark answered/closed in admin. Newest 50 shown.</small></p>
+</section>
+
+<p class="muted"><small>Generated {{ generated_at|date:"Y-m-d H:i" }} UTC.</small></p>
+{% endblock %}

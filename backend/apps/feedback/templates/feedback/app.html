@@ -1,0 +1,9 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Report a problem · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Report a problem</h1><p>Something broken, confusing or missing? A person reads every report and replies by email within 1 business day.</p></div></header>
+<section class="card feedback-section">
+  {% url 'feedback:app' as action %}
+  {% include "feedback/_form.html" with action=action button_class="button" %}
+</section>
+{% endblock %}

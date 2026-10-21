@@ -1,0 +1,24 @@
+{% for inbox in inboxes %}
+<section class="card webhook-card">
+  {% with webhook=inbox.webhook %}
+  <div class="section-head webhook-head"><div class="min0"><h2 class="truncate" title="{{ inbox.label|default:inbox.address }}">{{ inbox.label|default:inbox.address }}</h2><p class="addr-line">{% include 'dashboard/partials/address.html' with a_local=inbox.routing_key a_full=inbox.address only %}</p></div>{% if webhook %}<span class="status{% if webhook.is_enabled %} on{% endif %}">{{ webhook.is_enabled|yesno:'Enabled,Disabled' }}</span>{% else %}<span class="status">Not configured</span>{% endif %}</div>
+  <form class="webhook-form" method="post" action="{% url 'dashboard:webhook-save' inbox.public_id %}" hx-post="{% url 'dashboard:webhook-save' inbox.public_id %}" hx-target="#webhook-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    {% csrf_token %}{# uxfix F11: no webhook yet + plan without webhooks -> create controls disabled (server check unchanged). #}<fieldset class="bare-fieldset"{% if not webhook and not can_configure %} disabled{% endif %}><input type="url" name="url" maxlength="2048" required placeholder="https://receiver.example/webhook" value="{{ webhook.url|default:'' }}" aria-label="Webhook URL for {{ inbox.address }}">
+    <label class="checkbox"><input type="checkbox" name="is_enabled"{% if webhook.is_enabled %} checked{% endif %}> Enabled</label>
+    <button class="button">{% if webhook %}Save{% else %}Create webhook{% endif %}</button></fieldset>
+  </form>
+  {% if webhook %}
+  <div class="webhook-meta">
+    <p class="muted">Webhook ID <code>{{ webhook.public_id }}</code></p>
+    <div class="actions">
+      <form method="post" action="{% url 'dashboard:webhook-test' inbox.public_id %}" hx-post="{% url 'dashboard:webhook-test' inbox.public_id %}" hx-target="#webhook-result" hx-swap="innerHTML" class="inline-form" hx-disabled-elt="find button">{% csrf_token %}<button class="button secondary">Send test</button></form>
+      <form method="post" action="{% url 'dashboard:webhook-disable' inbox.public_id %}" hx-post="{% url 'dashboard:webhook-disable' inbox.public_id %}" hx-target="#webhook-result" hx-swap="innerHTML" class="inline-form" hx-disabled-elt="find button">{% csrf_token %}<button class="button secondary">Disable</button></form>
+      <form method="post" action="{% url 'dashboard:webhook-rotate' inbox.public_id %}" hx-post="{% url 'dashboard:webhook-rotate' inbox.public_id %}" hx-target="#webhook-result" hx-swap="innerHTML" class="inline-form" hx-disabled-elt="find button">{% csrf_token %}<button class="button secondary">Rotate secret</button></form>
+      <form method="post" action="{% url 'dashboard:webhook-delete' inbox.public_id %}" hx-post="{% url 'dashboard:webhook-delete' inbox.public_id %}" hx-target="#webhook-result" hx-swap="innerHTML" class="inline-form" hx-disabled-elt="find button" hx-confirm="Delete the webhook for {{ inbox.address }} and its delivery history? This cannot be undone.">{% csrf_token %}<button class="button danger">Delete webhook</button></form>
+      <a class="more" href="{% url 'dashboard:webhook-deliveries' inbox.public_id %}">View delivery history</a>
+    </div>
+  </div>
+  {% endif %}
+  {% endwith %}
+</section>
+{% empty %}<section class="card"><p>Create an inbox before configuring a webhook.</p></section>{% endfor %}

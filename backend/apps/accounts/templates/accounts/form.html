@@ -1,0 +1,52 @@
+{% load static signup_tags %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <title>{{ title }} · mailsocket</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">{% include "dashboard/partials/_brand.html" with brand_origin=APEX_ORIGIN %}</div>
+    <h1>{{ title }}</h1>
+    {% if for_email %}<p class="auth-for">for <strong>{{ for_email }}</strong></p>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {# QA #13: explicit per-field markup so each error renders directly UNDER its own input (as_p put it above the label, visually attaching it to the previous field). #}
+      {% if form.non_field_errors %}<ul class="errorlist nonfield" role="alert">{% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+      {#  F4: shown under EVERY failed sign-in (wrong password, unknown, unverified, rate-limited alike), so it reveals nothing about the account; the link carries no email. #}
+      {% if title == "Sign in" and form.non_field_errors %}<p class="auth-hint" id="signin-verify-hint">Just signed up? Verify your email first — <a href="{% url 'accounts:resend-verification' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Resend verification email</a></p>{% endif %}
+      {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+      {% if src_host %}<input type="hidden" name="src_host" value="{{ src_host }}">{% endif %}
+      {% for field in form.visible_fields %}
+      <p class="auth-field{% if field.errors %} has-error{% endif %}">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<span class="helptext" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>{% endif %}
+        {% if field.errors %}<span class="field-errors" id="{{ field.auto_id }}_error" role="alert">{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</span>{% endif %}
+      </p>
+      {% endfor %}
+      <button type="submit" class="button auth-submit">{{ submit_label|default:"Continue" }}</button>
+    </form>
+    <div class="auth-links">
+      {% if title == "Sign in" %}
+        <a href="{% signup_href next=next_url absolute=False %}">New here? Start free</a>
+        <a href="{% url 'accounts:password-reset' %}">Forgot password?</a>
+        <a href="{% url 'accounts:resend-verification' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Didn't get the verification email?</a>
+      {% elif title == "Create your account" %}
+        <a href="{% url 'accounts:login' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Already have an account? Sign in</a>
+      {% else %}
+        <a href="{% url 'accounts:login' %}">Back to sign in</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+</body>
+</html>

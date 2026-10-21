@@ -1,0 +1,2518 @@
+openapi: 3.1.0
+info:
+  title: mailsocket API
+  version: "1"
+  description: |
+    The mailsocket v1 REST API: inboxes, message retrieval, and the
+    "wait for the OTP or magic link" long-poll.
+
+    The API is served under the base path `/api/v1` (every path below is
+    relative to that base). It is authenticated ONLY by an
+    `Authorization: Bearer ms_live_...` header; dashboard session cookies are
+    deliberately ignored.
+
+    This document describes the API as implemented and is checked against
+    the implementation in CI.
+
+    Versioning: v1 changes are additive only (new endpoints, new optional
+    parameters, new response fields, new error codes). A breaking change is
+    announced at least 90 days ahead in the changelog and signalled with
+    `Deprecation` and `Sunset` response headers. See
+    https://mailsocket.app/docs/versioning.
+
+    Every response carries an `X-Request-Id` header; error bodies repeat it
+    as `error.request_id`. Include it when you contact support.
+
+    Safe retries: `POST /inboxes`, `POST /domains`, `POST /inboxes/{id}/test-code`
+    and `POST /messages/batch` (`mark_read` and `delete`) accept an optional `Idempotency-Key` header
+    (1-255 printable ASCII characters, kept 24 hours). A key is scoped to the
+    API key that sent it: another API key, even in the same account, never
+    sees it. Retrying with the same key and the same body returns the first
+    response again, with `Idempotent-Replayed: true`, and creates nothing
+    new. The same key with a different body or endpoint returns `422
+    idempotency_key_reused`; a retry while the first request is still running
+    returns `409 idempotency_in_progress`. Only final answers are stored:
+    2xx, and the validation errors `400`, `404` and `422` (except
+    `domain_not_found_or_unverified`). Outcomes you can fix and retry are not
+    stored, so a retry with the same key runs again: `402`, `403` (including
+    `domain_limit_reached`), `409` (including `plan_limit_reached` and
+    `conflict`), `429` and `5xx`. A request whose body is too large to read
+    returns `400 validation_error` and is not recorded. Without the header,
+    nothing changes. `POST /agents/register` does not support it (it has no
+    account to scope the key to).
+  contact:
+    name: mailsocket
+    url: https://mailsocket.app
+servers:
+  - url: https://dash.mailsocket.app/api/v1
+    description: Production API (base path `/api/v1`)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: inboxes
+    description: Inbox management.
+  - name: messages
+    description: Message retrieval and filtering.
+  - name: agents
+    description: Create an API key and inbox without signing up.
+  - name: verify
+    description: Email address verification (syntax, MX and heuristics).
+  - name: domains
+    description: |
+      Custom domains (Scale and Business plans). Once a domain is verified,
+      inboxes can be created on it and, on Business, catch-all can route
+      unmatched addresses to one inbox. Accounts without custom domains enabled receive
+      `403 byod_disabled`.
+
+paths:
+  /inboxes:
+    get:
+      tags: [inboxes]
+      summary: List inboxes
+      description: |
+        Returns the caller's non-deleted inboxes, newest first, with cursor
+        pagination. Authenticated responses carry the `X-RateLimit-*` headers.
+      operationId: listInboxes
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: A page of inboxes.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    post:
+      tags: [inboxes]
+      summary: Create an inbox
+      description: |
+        Creates a new inbox with an optional `label`. Returns `201` with a
+        `Location` header pointing at the new inbox, or `409` when the plan
+        limit is reached (`plan_limit_reached`) or after allocation retries are
+        exhausted (`conflict`).
+      operationId: createInbox
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboxWrite"
+      responses:
+        "201":
+          description: Inbox created.
+          headers:
+            Location:
+              description: Path of the new inbox (e.g. `/api/v1/inboxes/inbox_...`).
+              schema:
+                type: string
+            Idempotent-Replayed:
+              $ref: "#/components/headers/Idempotent-Replayed"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Inbox"
+        "400":
+          $ref: "#/components/responses/InvalidIdempotencyKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: |
+            Plan limit reached (`plan_limit_reached`), custom `routing_key`
+            already claimed by another account (`slug_taken`), allocation
+            conflict (`conflict`), or a request with the same
+            `Idempotency-Key` is still running (`idempotency_in_progress`).
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                plan_limit_reached:
+                  value:
+                    error:
+                      code: plan_limit_reached
+                      message: Plan limit reached.
+                      fields: {}
+                slug_taken:
+                  value:
+                    error:
+                      code: slug_taken
+                      message: That inbox address is already taken. Choose a different routing_key.
+                      fields: {}
+                conflict:
+                  value:
+                    error:
+                      code: conflict
+                      message: Request conflicts with the current state.
+                      fields: {}
+                idempotency_in_progress:
+                  value:
+                    error:
+                      code: idempotency_in_progress
+                      message: A request with this Idempotency-Key is still being processed. Retry shortly.
+                      fields: {}
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/IdempotencyKeyReused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /inboxes/{id}:
+    get:
+      tags: [inboxes]
+      summary: Get an inbox
+      description: |
+        Returns one inbox plus two detail fields: `message_count_month` (messages
+        received this calendar month) and `webhook_configured` (whether a
+        webhook row exists for the inbox).
+      operationId: getInbox
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+      responses:
+        "200":
+          description: The inbox.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InboxDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    delete:
+      tags: [inboxes]
+      summary: Delete an inbox
+      description: |
+        Atomically disables and soft-deletes the inbox. Returns `204`. A second
+        delete returns the same `404` as an unknown or foreign ID.
+      operationId: deleteInbox
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+      responses:
+        "204":
+          description: Inbox deleted (no content).
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /inboxes/{id}/messages:
+    get:
+      tags: [messages]
+      summary: List messages in an inbox
+      description: |
+        Returns message summaries for one inbox, newest first, with cursor
+        pagination. The optional `has_otp`, `subject_contains` and `from`
+        filters are ANDed together; invalid values are ignored gracefully
+        (never a 500). The pagination cursor is bound to the exact filter set,
+        so a cursor minted under one filter cannot be replayed under another.
+      operationId: listInboxMessages
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+        - name: has_otp
+          in: query
+          required: false
+          description: |
+            When `true`, keep only messages with a non-empty OTP
+            (`otp IS NOT NULL` and `otp != ''`).
+          schema:
+            type: boolean
+        - name: subject_contains
+          in: query
+          required: false
+          description: |
+            Case-insensitive substring match on the subject. Capped at 200
+            characters; blank values are ignored.
+          schema:
+            type: string
+            maxLength: 200
+        - name: from
+          in: query
+          required: false
+          description: Case-insensitive substring match on the From header.
+          schema:
+            type: string
+        - name: read
+          in: query
+          required: false
+          description: |
+            `true` (only read messages) | `false` (only unread messages) |
+            `all` (no filter, default). Absent or an unrecognized value
+            behaves like `all`. The pagination cursor is bound to the exact
+            `read` value used to mint it; a cursor minted under one value
+            cannot be replayed under another (`422 validation_error`).
+          schema:
+            type: string
+            enum: ["true", "false", "all"]
+        - name: q
+          in: query
+          required: false
+          description: |
+            Free-text search: case-insensitive substring match on EITHER the
+            subject OR the From header (`OR`-composed with each other,
+            `AND`-composed with every other filter). Capped at 200
+            characters; blank values are ignored. The pagination cursor is
+            bound to the exact `q` value used to mint it; a cursor minted
+            under one value cannot be replayed under another
+            (`422 validation_error`).
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: A page of message summaries.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSummaryListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /inboxes/{id}/messages/latest:
+    get:
+      tags: [messages]
+      summary: Get the latest message in an inbox
+      description: Returns the single newest message (full representation) or `404` when the inbox has no messages.
+      operationId: latestInboxMessage
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+      responses:
+        "200":
+          description: The latest message.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /inboxes/{id}/messages/wait:
+    get:
+      tags: [messages]
+      summary: Wait for an OTP or magic link
+      description: |
+        Blocks until a matching parsed message arrives, or returns empty when the
+        window elapses. This is the "one call, wait for the code" primitive.
+
+        - `timeout`: seconds to block (default 20, clamped to `[1, 25]`).
+        - `since`: only messages received strictly after this point match.
+          Accepted forms: an ISO-8601 datetime, a message `public_id` (resolved
+          to that owned message's `received_at`), or a unix timestamp (seconds;
+          values ≥ 1e12 are treated as milliseconds). Default: the request start
+          time. Pass `since=0` (the epoch) to mean "match messages already in
+          the inbox".
+        - `require`: `otp` (default) | `link` | `any`. Any other value is
+          rejected with `422 validation_error` (`fields.require` lists the
+          allowed values); it is never silently coerced.
+        - `min_confidence`: float, default 0.0; an OTP must have
+          `otp_confidence >= min_confidence`. Clamped to `[0, 1]`. Ignored for
+          `require=link`.
+
+        Waiting in a loop: every `200` and `204` carries a
+        `Mailsocket-Wait-Since` header with the cutoff this call used (your
+        `since`, or the request start). Pass this back as `since` on your next
+        wait call to never miss a message. Without it, each new call starts a
+        fresh cutoff, so a message that arrives between two calls is skipped.
+
+        A single wait occupies one gthread worker for up to `timeout` seconds.
+        Concurrency is bounded by a per-account cap and a global cap, surfaced
+        as the two distinct `429` codes below.
+      operationId: waitForMessage
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+        - name: timeout
+          in: query
+          required: false
+          description: Seconds to block. Default 20. Clamped to [1, 25].
+          schema:
+            type: number
+            default: 20
+            minimum: 1
+            maximum: 25
+        - name: since
+          in: query
+          required: false
+          description: |
+            ISO-8601 datetime, a message `public_id`, or a unix timestamp.
+            Only messages received strictly after this point match.
+          schema:
+            type: string
+        - name: require
+          in: query
+          required: false
+          description: What counts as a match. Any other value -> 422 validation_error.
+          schema:
+            type: string
+            enum: [otp, link, any]
+            default: otp
+        - name: min_confidence
+          in: query
+          required: false
+          description: Minimum `otp_confidence` for an OTP match. Default 0.0.
+          schema:
+            type: number
+            default: 0.0
+      responses:
+        "200":
+          description: A matching parsed message arrived.
+          headers:
+            Mailsocket-Wait-Since:
+              $ref: "#/components/headers/Mailsocket-Wait-Since"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Message"
+        "204":
+          description: |
+            Waited, nothing matched yet; call again. Success, not an error.
+            Send the `Mailsocket-Wait-Since` value back as `since` on that
+            next call.
+          headers:
+            Mailsocket-Wait-Since:
+              $ref: "#/components/headers/Mailsocket-Wait-Since"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          description: |
+            Concurrent-wait cap exhausted. Two distinct codes:
+            `too_many_wait_requests` (your plan's per-account cap) and
+            `wait_capacity` (service-wide cap). A slot frees when a wait
+            returns, times out, or the client disconnects. Retry after the
+            number of seconds in `Retry-After`.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                too_many_wait_requests:
+                  value:
+                    error:
+                      code: too_many_wait_requests
+                      message: Too many concurrent wait requests.
+                      fields: {}
+                wait_capacity:
+                  value:
+                    error:
+                      code: wait_capacity
+                      message: Too many concurrent wait requests across all accounts.
+                      fields: {}
+
+  /inboxes/{id}/test-code:
+    post:
+      tags: [inboxes]
+      summary: Send yourself a test code
+      description: |
+        Puts one sample OTP email (a random 6-digit code) straight into one of
+        your own inboxes. It does NOT go through the mail server: the message
+        is stored and parsed exactly like real inbound mail, so a pending
+        `messages/wait` returns it, it counts toward the monthly message
+        usage and it fires the inbox's webhook. Use it to prove the wait loop
+        end to end when you cannot send real email (for example, outbound
+        port 25 is blocked).
+
+        To run the steps one call at a time (no second shell), take a cutoff
+        BEFORE this call and pass it to the wait as `since`: read
+        `GET /inboxes/{id}/messages/latest` and use its `data.id` (or `0` when it
+        returns `404` because the inbox is empty), then call test-code, then
+        `GET /inboxes/{id}/messages/wait?require=otp&since=<that id>`. The wait
+        returns this test code even though it arrived before the wait started,
+        and never an older code already in the inbox. Without `since`, the wait
+        only sees mail that arrives while it runs, so then start the wait first
+        and call test-code from another shell while it is pending.
+
+        Same feature and the same limits as the dashboard "Send a test code"
+        button, and the two share one quota: 5 per inbox and 20 per account
+        per hour. The per-inbox limit is checked first, so a refused request
+        never uses up the account-wide budget. Foreign, deleted and unknown
+        inbox ids all return the same `404`, and nothing is charged.
+      operationId: sendTestCode
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: The test code was stored. It is parsed within a moment.
+          headers:
+            Location:
+              description: Path of the new message (e.g. `/api/v1/messages/msg_...`).
+              schema:
+                type: string
+            Idempotent-Replayed:
+              $ref: "#/components/headers/Idempotent-Replayed"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [message_id, sent_at]
+                    properties:
+                      message_id:
+                        type: string
+                        description: Public id of the new message (`msg_...`).
+                      sent_at:
+                        type: string
+                        format: date-time
+                        description: When the message was stored (its `received_at`).
+        "400":
+          $ref: "#/components/responses/InvalidIdempotencyKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            The inbox is disabled (`inbox_disabled`; enable it first), or a
+            request with the same `Idempotency-Key` is still running
+            (`idempotency_in_progress`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                inbox_disabled:
+                  value:
+                    error:
+                      code: inbox_disabled
+                      message: This inbox is disabled. Enable it to receive a test code.
+                      fields: {}
+                idempotency_in_progress:
+                  value:
+                    error:
+                      code: idempotency_in_progress
+                      message: A request with this Idempotency-Key is still being processed. Retry shortly.
+                      fields: {}
+        "422":
+          $ref: "#/components/responses/IdempotencyKeyReused"
+        "429":
+          description: |
+            Per-inbox (5/hour) or per-account (20/hour) test-code limit
+            reached (shared with the dashboard button). `error.message` says
+            how many minutes until another test code can be sent;
+            `Retry-After` gives the same moment in seconds.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: rate_limited
+                  message: Too many test codes requested. You can send another test code in 42 min.
+                  fields: {}
+
+  /messages/{id}:
+    get:
+      tags: [messages]
+      summary: Get a message
+      description: Returns a single message in its full representation.
+      operationId: getMessage
+      parameters:
+        - $ref: "#/components/parameters/messageId"
+      responses:
+        "200":
+          description: The message.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    patch:
+      tags: [messages]
+      summary: Mark a message read or unread
+      description: |
+        Sets the message's `read` state. Setting `read: true` records
+        `read_at` (the first time only; a repeat `read: true` is a no-op, not
+        an error). Setting `read: false` clears `read_at`. Idempotent either
+        way. Returns the full updated message.
+      operationId: patchMessage
+      parameters:
+        - $ref: "#/components/parameters/messageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [read]
+              additionalProperties: false
+              properties:
+                read:
+                  type: boolean
+      responses:
+        "200":
+          description: The updated message.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /messages/batch:
+    post:
+      tags: [messages]
+      summary: Batch operate on messages by id
+      description: |
+        Applies one `action` (`mark_read` | `delete` | `fetch`) across up to
+        100 of your message ids in one call. An id that does not exist and an
+        id owned by another account both return `status: not_found`.
+        Requires a paid plan (`402 plan_upgrade_required` on Free). The body
+        is validated before the plan check: a malformed body is always
+        `422 validation_error`, for every plan.
+        `mark_read` and `delete` are idempotent: repeating the call returns
+        the same shape without changing anything again. `Idempotency-Key`
+        applies to `mark_read` and `delete` only; it is ignored for `fetch`,
+        which always returns fresh data.
+      operationId: batchMessages
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageBatchRequest"
+      responses:
+        "200":
+          description: Per-id results, in the same order as the input `ids`.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+            Idempotent-Replayed:
+              $ref: "#/components/headers/Idempotent-Replayed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageBatchResponse"
+        "400":
+          $ref: "#/components/responses/InvalidIdempotencyKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PlanUpgradeRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: A request with the same `Idempotency-Key` is still running (`idempotency_in_progress`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: idempotency_in_progress
+                  message: A request with this Idempotency-Key is still being processed. Retry shortly.
+                  fields: {}
+        "422":
+          description: |
+            `validation_error` — the body does not match `MessageBatchRequest`
+            (checked before the plan, so Free callers see it too); or
+            `idempotency_key_reused` — the same `Idempotency-Key` was used
+            with a different request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /inboxes/{id}/webhook/test:
+    post:
+      tags: [inboxes]
+      summary: Send one synchronous signed test webhook delivery
+      description: |
+        Sends exactly one synchronous, signed test event through the same
+        SSRF-pinned transport and signing primitives real deliveries use.
+        Creates NO `WebhookDelivery` row (no retry, no drain interaction), so
+        it never appears in delivery history. Allowed even when the webhook
+        is disabled (verify a receiver before enabling it). Counts toward the
+        monthly `webhook_attempts` usage, exactly like a real delivery attempt,
+        including failed/rejected attempts, not just delivered ones.
+      operationId: testWebhook
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+      responses:
+        "200":
+          description: The test send was attempted (delivered is true whenever the transport returned any HTTP response, including non-2xx).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [delivered, response_status, signature_version, event_id]
+                    properties:
+                      delivered:
+                        type: boolean
+                      response_status:
+                        type: integer
+                        description: The receiver's HTTP status code.
+                      signature_version:
+                        type: string
+                      event_id:
+                        type: string
+                        description: Synthetic event id for this test send, prefixed `evt_test_`.
+        "400":
+          description: The webhook URL was rejected by SSRF validation before any network call was made.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: webhook_ssrf_rejected
+                  message: The webhook URL was rejected by SSRF validation.
+                  fields:
+                    url: ["blocked_ip"]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            Either account-level forbidden, or the plan does not include
+            webhooks (`webhook_entitlement_required`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: webhook_entitlement_required
+                  message: Webhooks require a paid plan.
+                  fields: {}
+        "404":
+          description: |
+            Either the inbox is not owned by the caller (`not_found`), or it
+            is owned but has no webhook configured (`webhook_not_configured`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                not_found:
+                  value:
+                    error:
+                      code: not_found
+                      message: Resource not found.
+                      fields: {}
+                webhook_not_configured:
+                  value:
+                    error:
+                      code: webhook_not_configured
+                      message: No webhook is configured for this inbox.
+                      fields: {}
+        "429":
+          description: |
+            Per-inbox (10/hour) or per-account (30/hour) test-send rate limit
+            exceeded.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: rate_limited
+                  message: Rate limit exceeded.
+                  fields: {}
+        "502":
+          description: The transport could not reach the receiver (timeout, connection refused, TLS failure).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: webhook_unreachable
+                  message: The webhook receiver could not be reached.
+                  fields:
+                    error: ["timeout"]
+
+  /agents/register:
+    post:
+      tags: [agents]
+      summary: Self-register a zero-signup agent API key
+      description: |
+        UNauthenticated on purpose. An agent (or a dev) posts an optional
+        `name` and gets back a working API key plus a ready-to-use inbox in
+        one call; no email, no human confirmation. The plaintext key is
+        returned ONCE and never retrievable again. IP-rate-limited AND
+        globally rate-limited (a fixed hourly cap across all sources), and
+        the resulting account is Free-plan, subject to a shared reduced
+        wait-capacity pool and idle-account garbage collection.
+        `Idempotency-Key` is not supported here: there is no account to
+        scope the key to, so the header is ignored and every call mints a
+        new key.
+      operationId: registerAgent
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 60
+                  description: |
+                    Optional label for the minted key. A string longer than
+                    60 characters is `422 validation_error` with
+                    `fields.name` (nothing is minted); a non-string value is
+                    ignored.
+      responses:
+        "201":
+          description: Agent account, API key, and first inbox created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [api_key, key_prefix, plan, message]
+                    properties:
+                      api_key:
+                        type: string
+                        description: The plaintext key. Shown once; store it securely.
+                      key_prefix:
+                        type: string
+                      plan:
+                        type: string
+                        enum: [free]
+                      message:
+                        type: string
+                      inbox:
+                        $ref: "#/components/schemas/Inbox"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: |
+            The body is not valid JSON (`validation_error`,
+            `fields.body: ["Malformed JSON body."]`), or `name` is longer than
+            60 characters (`validation_error`, `fields.name`). Send
+            `application/json` with an object such as `{"name": "my-agent"}`,
+            or no body at all.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: validation_error
+                  message: Request validation failed.
+                  fields:
+                    body: [Malformed JSON body.]
+        "429":
+          description: Per-IP or global agent-registration rate limit exceeded.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: rate_limited
+                  message: Rate limit exceeded.
+                  fields: {}
+
+  /verify:
+    post:
+      tags: [verify]
+      summary: Email address verification (safe or full SMTP probe)
+      description: |
+        `mode: "safe"` (default): syntax + DNS (MX, falling back to A/AAAA) +
+        disposable/role heuristics. Never opens an SMTP connection. Rate-limited
+        per key AND per account (an account holding multiple keys cannot
+        multiply its effective ceiling), plus a service-wide concurrency cap.
+
+        `mode: "full"` is not generally available and returns
+        `403 smtp_verify_disabled` (or `403 verify_full_entitlement_required`
+        on a plan other than Business). When enabled it additionally
+        opens one real SMTP session to the target domain's MX and issues a
+        RCPT probe (never DATA) to check whether the specific mailbox exists.
+        Separate, harder per-key/per-account rate limits and a separate small
+        in-flight capacity pool apply on top of the safe-mode limits. SSRF-safe
+        by construction: every resolved MX/A/AAAA address is validated as
+        public before any connection is attempted; a domain that resolves
+        exclusively to non-public addresses degrades to the safe verdict
+        (`smtp.probe: "skipped"`, `reason: "mx_non_public"`) rather than
+        erroring. Any probe failure (timeout, refused connection, per-domain
+        cooldown, capacity exhaustion) degrades to `200` with the safe-mode
+        verdict.
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  minLength: 1
+                  pattern: "\\S"
+                  description: |
+                    The address to check. Any string is accepted and gets a
+                    verdict: an address the server cannot use (wrong shape,
+                    too long) returns `200` with `syntax_valid: false` and a
+                    `reason`, never a `4xx`. Only the first 320 characters are
+                    read and checked (the verdict's `email` echoes that
+                    part). An empty or blank value is `422 validation_error`.
+                mode:
+                  type: string
+                  enum: [safe, full]
+                  default: safe
+                  description: |
+                    "full" additionally performs a live SMTP RCPT probe.
+                    Not generally available (403 smtp_verify_disabled).
+      responses:
+        "200":
+          description: A verification verdict (never a hard existence guarantee).
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - email
+                      - deliverable
+                      - syntax_valid
+                      - domain
+                      - has_mx
+                      - is_disposable
+                      - is_role
+                      - reason
+                      - checked
+                    properties:
+                      email:
+                        type: string
+                      deliverable:
+                        type: string
+                        enum: [deliverable, risky, undeliverable, unknown]
+                      syntax_valid:
+                        type: boolean
+                      domain:
+                        type: [string, "null"]
+                      has_mx:
+                        type: boolean
+                      is_disposable:
+                        type: boolean
+                      is_role:
+                        type: boolean
+                      reason:
+                        type: string
+                      checked:
+                        type: string
+                      smtp:
+                        type: object
+                        description: 'Present only when mode is "full".'
+                        properties:
+                          probe:
+                            type: string
+                            enum: [completed, skipped, failed]
+                          rcpt_code:
+                            type: [integer, "null"]
+                          catch_all:
+                            type: [boolean, "null"]
+                          reason:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            Account forbidden, full-mode SMTP verify disabled
+            (smtp_verify_disabled), or the plan lacks the full-mode
+            entitlement (verify_full_entitlement_required).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /verify/batch:
+    post:
+      tags: [verify]
+      summary: Bulk email verification (up to 100 unique rows safe / 25 full)
+      description: |
+        Every email goes through the EXACT same verification path as
+        `POST /verify`; this is a charged, capped, deadline-bounded loop
+        over that path, NOT a separate/lighter verification. Bulk is NOT a
+        rate-limit bypass: each row consumes the standard per-key/per-account
+        `/verify` hourly budget (the SAME buckets single `/verify` draws
+        from; singles and batches share one budget).
+
+        Input: exactly one of `emails` (JSON array), `text` (a paste blob:
+        newline/comma/semicolon/whitespace-separated), or a multipart `file`
+        upload (`.csv`/`.txt`, max 64KB). Tokens are trimmed, quote-stripped,
+        capped at 320 chars, and exact-match deduplicated (order-preserving)
+        before verification; `N` (unique count) is what gets rate-charged,
+        metered, and returned as `results`. Safe mode caps at 100 unique
+        rows; full mode (not generally available) caps at 25. `N == 0` or
+        `N > cap` is a whole-batch `422`; a row that
+        merely fails verification (bad syntax, disposable, a CSV header
+        line) is never a batch-level error, only a per-row verdict.
+
+        Unlike single `/verify` (which consumes its rate-limit charge even
+        on the request that gets refused), a batch's charge is CONDITIONAL:
+        if the full `N`-sized charge does not fit the remaining hourly
+        budget, NOTHING is consumed and the whole batch returns `429`
+        (so retrying a large batch against a near-full budget never drains it).
+
+        The batch runs under a 60-second wall-clock deadline. Rows not
+        started before the deadline
+        return `deliverable: "unknown"`, `reason: "batch_budget_exhausted"`.
+        The rate charge and usage meter still count them (no refund race).
+
+        Full mode applies the same checks as single `/verify` full mode:
+        availability and plan once per batch (a 403 happens before any row
+        work), rate limits and per-domain cooldowns per row.
+      operationId: verifyEmailBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: |
+                Exactly one of `emails` or `text` (both or neither ->
+                `422 validation_error`). After tokenizing and de-duplicating
+                there must be at least one address and at most 100 (safe) /
+                25 (full), else `422 validation_error` / `422 batch_too_large`.
+              oneOf:
+                - required: [emails]
+                - required: [text]
+              properties:
+                emails:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                  description: Mutually exclusive with `text`.
+                text:
+                  type: string
+                  minLength: 1
+                  description: |
+                    A paste blob; tokenized on newline/comma/semicolon/
+                    whitespace. Mutually exclusive with `emails`.
+                mode:
+                  type: string
+                  enum: [safe, full]
+                  default: safe
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: |
+                    One UTF-8 text file whose filename ends in `.csv` or
+                    `.txt` (case-insensitive), max 64KB. The type is decided
+                    by the filename extension; the part's Content-Type is not
+                    read. Any other extension returns
+                    `422 unsupported_file_type`; bytes that are not valid
+                    UTF-8, or that contain a NUL byte, return
+                    `422 malformed_file`.
+                mode:
+                  type: string
+                  enum: [safe, full]
+                  default: safe
+            encoding:
+              file:
+                contentType: text/csv, text/plain
+                headers:
+                  Content-Disposition:
+                    description: The part's filename must end in `.csv` or `.txt`.
+                    schema:
+                      type: string
+                      example: 'form-data; name="file"; filename="emails.csv"'
+      responses:
+        "200":
+          description: |
+            Per-row results in input order (first-occurrence position for
+            deduplicated rows) plus a verdict summary. Each row is EXACTLY
+            the single-verify `data` object shape (including the `smtp`
+            sub-object in full mode); no new verdict vocabulary.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [mode, results, summary]
+                    properties:
+                      mode:
+                        type: string
+                        enum: [safe, full]
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          description: Same shape as the `data` object returned by `POST /verify`.
+                      summary:
+                        type: object
+                        required: [total, deliverable, risky, undeliverable, unknown]
+                        properties:
+                          total:
+                            type: integer
+                          deliverable:
+                            type: integer
+                          risky:
+                            type: integer
+                          undeliverable:
+                            type: integer
+                          unknown:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            Account forbidden, full-mode SMTP verify disabled
+            (smtp_verify_disabled), or the plan lacks the full-mode
+            entitlement (verify_full_entitlement_required); checked once
+            per batch, before any row work.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: |
+            Structural batch problems only (never a per-row verdict):
+            `validation_error` (both/neither of `emails`/`text` supplied, or
+            zero unique rows), `batch_too_large` (over the mode's cap),
+            `unsupported_file_type` (the uploaded filename does not end in
+            `.csv` or `.txt`, e.g. `file.png`), `malformed_file`
+            (not valid UTF-8, or contains a NUL byte), `file_too_large`
+            (over 64KB, checked via Content-Length and re-checked against
+            the actual parsed size).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                unsupported_file_type:
+                  value:
+                    error:
+                      code: unsupported_file_type
+                      message: The uploaded file must be a .csv or .txt file.
+                      fields: {}
+                malformed_file:
+                  value:
+                    error:
+                      code: malformed_file
+                      message: The uploaded file could not be decoded as UTF-8 text, or contains binary data.
+                      fields: {}
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /domains:
+    get:
+      tags: [domains]
+      summary: List custom domains
+      description: |
+        Returns the caller's custom domains, newest first, with cursor
+        pagination. `403 byod_disabled` when custom domains are not enabled
+        for the account. Listing
+        is not plan-gated: an account on a plan without custom domains simply
+        gets an empty list (a downgraded account keeps read/list/delete on
+        domains it already owns). Creating one needs a Scale or Business
+        plan; see `POST /domains`.
+      operationId: listDomains
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: A page of domains.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Domain"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Account is not permitted to use the API, or BYOD is disabled (`byod_disabled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/InvalidPageParams"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    post:
+      tags: [domains]
+      summary: Register a custom domain
+      description: |
+        Creates a `pending_dns` Domain for the caller. Returns the
+        verification TXT host + token and the MX target to publish.
+        Custom domains are a Scale and Business feature (3 and 10 domains by
+        default): a plan that cannot have custom domains at all (Free/Pro;
+        `custom_domains` cap 0) gets `403 domain_entitlement_required`,
+        checked BEFORE the request body is validated. A Scale or Business
+        account that has used its own cap gets `403 domain_limit_reached`. `409 domain_taken` when the
+        name is already registered by any account, in any status.
+      operationId: createDomain
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DomainWrite"
+      responses:
+        "201":
+          description: Domain created.
+          headers:
+            Location:
+              description: Path of the new domain (e.g. `/api/v1/domains/dom_...`).
+              schema:
+                type: string
+            Idempotent-Replayed:
+              $ref: "#/components/headers/Idempotent-Replayed"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Domain"
+        "400":
+          $ref: "#/components/responses/InvalidIdempotencyKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            Account forbidden, BYOD disabled (`byod_disabled`), the plan does
+            not include custom domains (`domain_entitlement_required`), or the
+            plan's custom-domain limit is reached (`domain_limit_reached`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: |
+            The domain name is already registered (`domain_taken`), or a
+            request with the same `Idempotency-Key` is still running
+            (`idempotency_in_progress`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                domain_taken:
+                  value:
+                    error:
+                      code: domain_taken
+                      message: That domain is already registered.
+                      fields: {}
+                idempotency_in_progress:
+                  value:
+                    error:
+                      code: idempotency_in_progress
+                      message: A request with this Idempotency-Key is still being processed. Retry shortly.
+                      fields: {}
+        "422":
+          $ref: "#/components/responses/IdempotencyKeyReused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /domains/{id}:
+    get:
+      tags: [domains]
+      summary: Get a custom domain
+      operationId: getDomain
+      parameters:
+        - $ref: "#/components/parameters/domainId"
+      responses:
+        "200":
+          description: The domain.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Domain"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    delete:
+      tags: [domains]
+      summary: Delete a custom domain
+      description: |
+        Releases the domain name. Refuses with `409 domain_has_inboxes` if
+        inboxes are still bound to it.
+      operationId: deleteDomain
+      parameters:
+        - $ref: "#/components/parameters/domainId"
+      responses:
+        "204":
+          description: Domain deleted (no content).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The domain still has inboxes bound to it (`domain_has_inboxes`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /domains/{id}/verify:
+    post:
+      tags: [domains]
+      summary: Trigger an on-demand DNS verification check
+      description: |
+        Checks the ownership TXT record, then MX, advancing
+        `pending_dns -> verified` when both match. Idempotent on an
+        already-verified domain (updates only `last_checked_at`).
+        Rate-limited: at most one manual verify per domain per 30 seconds,
+        and at most 20 per account per hour (`429 domain_verify_rate_limited`).
+      operationId: verifyDomain
+      parameters:
+        - $ref: "#/components/parameters/domainId"
+      responses:
+        "200":
+          description: The domain after the verify pass.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Domain"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: Manual-verify rate limit exceeded (`domain_verify_rate_limited`).
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/{id}/catch_all:
+    patch:
+      tags: [domains]
+      summary: Enable or disable catch-all for a verified custom domain
+      description: |
+        Business plan only. Enabling requires the domain to be `verified`
+        (else `409 domain_not_verified`). `inbox_id` is optional: when
+        omitted, a catch-all inbox is created and bound to the domain
+        (subject to the plan's inbox cap, else `403 inbox_limit_reached`);
+        when given, it must be a live inbox already bound to this domain
+        (else `422 catch_all_target_invalid`, or `404
+        domain_not_found_or_unverified` if it does not exist / is not
+        owned by the caller). Disabling keeps the designated inbox bound
+        (inert while `catch_all` is false) so re-enabling is cheap.
+        Rate-limited: at most 6 toggle calls per domain per hour
+        (`429 catch_all_rate_limited`).
+      operationId: setDomainCatchAll
+      parameters:
+        - $ref: "#/components/parameters/domainId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [catch_all]
+              properties:
+                catch_all:
+                  type: boolean
+                inbox_id:
+                  type: string
+                  nullable: true
+                  description: Optional; only meaningful when enabling.
+      responses:
+        "200":
+          description: The domain after the catch-all toggle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Domain"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            Account forbidden, BYOD disabled (`byod_disabled`), or the plan
+            does not include catch-all (`catch_all_entitlement_required`),
+            or the plan's inbox limit is reached (`inbox_limit_reached`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            Domain is not verified (`domain_not_verified`), or the
+            designated inbox is the active catch-all target and cannot be
+            reused this way (`catch_all_target`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: The designated inbox_id is not a live inbox bound to this domain (`catch_all_target_invalid`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Catch-all toggle rate limit exceeded (`catch_all_rate_limited`).
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /inboxes/{id}/stream:
+    get:
+      tags: [messages]
+      summary: Server-Sent Events push of new messages
+      description: |
+        SSE alternative to long-poll `wait`: emits a `message` event per
+        newly-ingested matching message, a periodic `: heartbeat` comment,
+        and a final `bye` event before closing (clients reconnect with a
+        fresh `since` cursor via the advertised `retry:`). Consumes the same
+        per-account and global wait-capacity slots as `messages/wait`
+        (routed through a smaller reserved sub-pool for Free/agent-plan
+        accounts so free traffic can never starve paid waits).
+      operationId: streamMessages
+      parameters:
+        - $ref: "#/components/parameters/inboxId"
+        - name: require
+          in: query
+          required: false
+          description: What counts as a match. Any other value -> 422 validation_error.
+          schema:
+            type: string
+            enum: [otp, link, any]
+            default: any
+        - name: min_confidence
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 0.0
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: text/event-stream of `message`/heartbeat/`bye` events.
+          headers:
+            Mailsocket-Wait-Since:
+              $ref: "#/components/headers/Mailsocket-Wait-Since"
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          description: |
+            Concurrent-wait cap exhausted (`too_many_wait_requests` per
+            account, or `wait_capacity` for the global/free-plan sub-pool).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /public/emails/{email}/messages:
+    get:
+      tags: [messages]
+      summary: Anonymous read of a public inbox's recent messages
+      description: |
+        No authentication. Only works for inboxes created with
+        `POST /inboxes {"public": true}`. Inboxes are private by default,
+        and this is the only way to read one without a key. Use it for
+        demos and shared fixtures, never for real user signups: anyone who
+        knows the address can read the OTPs. Custom-domain (BYOD)
+        inboxes can never be resolved here even if `is_public` were somehow
+        forced true directly in the database: the read path also requires
+        the address to parse as a bare shared-domain (`MAIL_DOMAIN`) address
+        with no bound `Domain`.
+
+        Every miss (unknown address, private inbox, disabled, deleted,
+        malformed address, or a custom-domain address) returns
+        the SAME `404 not_found` body, so this endpoint can never be used to
+        enumerate which addresses exist.
+
+        The response includes `otp` and `magic_link` with the summary fields
+        (from, to, cc, subject, received_at). It never includes `text`,
+        `html`, `links`, `otp_context`, `otp_candidates` or `metadata`.
+      operationId: publicInboxMessages
+      security: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: |
+            A shared-domain email address, e.g. `someone@in.inboxpipe.net`.
+            Any other shape (missing/extra `@`, non-shared domain, invalid
+            local part) returns `404`, the same as an unknown address.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Page size, 1 to 20. Default 20.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+      responses:
+        "200":
+          description: Up to `limit` newest messages, newest first.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MessageSummary"
+        "404":
+          description: |
+            Unknown, private (default), disabled, deleted, custom-domain, or
+            malformed address. All cases return the same response.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: not_found
+                  message: Resource not found.
+                  fields: {}
+        "429":
+          description: Per-IP rate limit exceeded (30/minute).
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "API key"
+      description: |
+        mailsocket API key, prefixed `ms_live_`. Send as
+        `Authorization: Bearer ms_live_...`.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Optional. 1-255 printable ASCII characters (use a UUID). Scoped to
+        the API key that sends it and kept for 24 hours. A retry with the
+        same key and the same body replays the first response (with
+        `Idempotent-Replayed: true`) and creates nothing new. The same key
+        with a different body or endpoint returns `422
+        idempotency_key_reused`; while the first request is still running,
+        `409 idempotency_in_progress`. Stored: 2xx, and `400`/`404`/`422`
+        validation errors. Not stored (a retry runs again): outcomes you can
+        fix and retry (`402`, `403`, `409`, and `422
+        domain_not_found_or_unverified`), `429` and `5xx`. An invalid value,
+        or a body too large to read, returns `400 validation_error`.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 255
+        pattern: "^[\\x20-\\x7E]{1,255}$"
+    inboxId:
+      name: id
+      in: path
+      required: true
+      description: The inbox public ID (e.g. `inbox_...`).
+      schema:
+        type: string
+    messageId:
+      name: id
+      in: path
+      required: true
+      description: The message public ID (e.g. `msg_...`).
+      schema:
+        type: string
+    domainId:
+      name: id
+      in: path
+      required: true
+      description: The domain public ID (e.g. `dom_...`).
+      schema:
+        type: string
+    limit:
+      name: limit
+      in: query
+      required: false
+      description: |
+        Page size, 1 to 100. Default 25. A value outside that range (or not
+        an integer) returns `422 validation_error` with `fields.limit`.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    cursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        Opaque, signed, owner- and filter-bound pagination cursor: only the
+        `next_cursor` returned by the previous page of the SAME endpoint with
+        the same filter parameters is accepted, for 24 hours. An invalid,
+        tampered, expired or foreign cursor (other endpoint, other filter set,
+        other account) returns `422 validation_error` with `fields.cursor`;
+        start again from the first page. Cursors minted with a filter before
+        are refused the same way.
+      schema:
+        type: string
+
+  headers:
+    Idempotent-Replayed:
+      description: |
+        `true` when this response is a stored replay of an earlier request
+        sent with the same `Idempotency-Key`. Absent otherwise.
+      schema:
+        type: string
+        enum: ["true"]
+    X-RateLimit-Limit:
+      description: The rate-limit ceiling for the matched bucket.
+      schema:
+        type: integer
+    X-RateLimit-Remaining:
+      description: Requests remaining in the current window.
+      schema:
+        type: integer
+    X-RateLimit-Reset:
+      description: Unix timestamp (seconds) when the window resets.
+      schema:
+        type: integer
+    Retry-After:
+      description: Seconds to wait before retrying (present on `429`, including both wait-cap codes).
+      schema:
+        type: integer
+    Mailsocket-Wait-Since:
+      description: |
+        The cutoff this wait actually used, as ISO-8601 UTC with microseconds
+        (e.g. `2026-10-12T03:04:05.123456Z`): your `since` when you sent one,
+        otherwise the request start time. Pass this back as `since` on your
+        next wait call to never miss a message, including one that arrived
+        between the two calls.
+      schema:
+        type: string
+        format: date-time
+    X-Request-Id:
+      description: |
+        Unique id for this request, present on every response. Also returned
+        as `error.request_id` in error bodies. Quote it when contacting support.
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      headers:
+        WWW-Authenticate:
+          description: Always `Bearer`.
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: authentication_required
+              message: Authentication required.
+              fields: {}
+    Forbidden:
+      description: Account is not permitted to use the API.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: account_forbidden
+              message: Account is not permitted to use the API.
+              fields: {}
+    NotFound:
+      description: Resource not found (unknown or not owned).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: not_found
+              message: Resource not found.
+              fields: {}
+    RateLimited:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/Retry-After"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: rate_limited
+              message: Rate limit exceeded.
+              fields: {}
+    ValidationError:
+      description: Request validation failed (malformed body or invalid parameter).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: validation_error
+              message: Request validation failed.
+              fields: {}
+    InvalidPageParams:
+      description: |
+        `limit` is not an integer from 1 to 100, or `cursor` is invalid,
+        tampered or expired (`validation_error`, details in `fields`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: validation_error
+              message: Request validation failed.
+              fields:
+                limit: [Must be an integer from 1 to 100.]
+    PlanUpgradeRequired:
+      description: |
+        The account is on the Free plan and this operation needs a paid plan
+        (`plan_upgrade_required`). Upgrade, then retry.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: plan_upgrade_required
+              message: This feature requires a paid plan. Upgrade to use it.
+              fields: {}
+    InvalidIdempotencyKey:
+      description: The `Idempotency-Key` header is empty, longer than 255 characters, or not printable ASCII, or the request body is too large to read with an `Idempotency-Key`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: validation_error
+              message: Request validation failed.
+              fields:
+                Idempotency-Key: [Must be 1-255 printable ASCII characters.]
+    IdempotencyKeyReused:
+      description: The `Idempotency-Key` was already used with a different body or endpoint (`idempotency_key_reused`), or the request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            validation_error:
+              value:
+                error:
+                  code: validation_error
+                  message: Request validation failed.
+                  fields: {}
+            idempotency_key_reused:
+              value:
+                error:
+                  code: idempotency_key_reused
+                  message: This Idempotency-Key was already used with a different request body or endpoint.
+                  fields: {}
+    UnsupportedMediaType:
+      description: Request media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: unsupported_media_type
+              message: Request media type is not supported.
+              fields: {}
+
+  schemas:
+    Inbox:
+      type: object
+      required: [id, label, address, is_enabled, created_at, updated_at, metadata]
+      properties:
+        id:
+          type: string
+          description: The inbox public ID.
+        label:
+          type: string
+        address:
+          type: string
+          description: The full inbound email address.
+        is_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          description: |
+            Your correlation metadata, `{}` when unset. Never returned by
+            unauthenticated endpoints.
+
+    InboxDetail:
+      allOf:
+        - $ref: "#/components/schemas/Inbox"
+        - type: object
+          required: [message_count_month, webhook_configured]
+          properties:
+            message_count_month:
+              type: integer
+              description: Messages received this calendar month.
+            webhook_configured:
+              type: boolean
+              description: Whether a webhook row exists for this inbox.
+
+    InboxWrite:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 120
+          description: Optional inbox label.
+        routing_key:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$"
+          description: |
+            Optional custom slug (the local-part of the inbox address). Input
+            is normalized to lowercase BEFORE validation, so callers may pass
+            either case (e.g. `MyCustomBox` is accepted and stored as
+            `mycustombox`); the pattern above matches the raw (pre-normalized)
+            input character set. Must start with a letter or digit and contain
+            only `A-Za-z`, `0-9`, `_`, `-` after that (3-64 chars total). When
+            omitted, a random routing key is minted. Returns `409 slug_taken`
+            if another account already owns it (checked case-insensitively,
+            after lowercasing), or `422 validation_error` if it fails the
+            pattern/length constraints or is a reserved key. The reserved-key
+            blocklist applies ONLY when `domain` is omitted (shared domain);
+            it is not enforced on a custom domain (the owner controls their
+            whole namespace there).
+        domain:
+          type: string
+          maxLength: 32
+          description: |
+            Optional public id (`dom_...`) of a verified custom domain
+            owned by the same account. Omitted (or blank) creates a shared
+            `in.inboxpipe.net` inbox.
+            Returns `422 domain_not_found_or_unverified` if the domain does
+            not exist, is not owned by the caller, or is not `verified`;
+            `403 byod_disabled` if custom domains are not enabled for the
+            account.
+        public:
+          type: boolean
+          default: false
+          description: |
+            Opt-in flag making the inbox's recent messages readable with no
+            auth via `GET /public/emails/{email}/messages`. Defaults `false`.
+            Never set it on an inbox that receives real user signups.
+            Shared-domain inboxes only: `true` combined with a
+            non-blank `domain` returns
+            `422 public_not_allowed_on_custom_domain`. Anyone holding the
+            address can read up to 20 recent messages, including OTPs (never
+            the body or metadata).
+        metadata:
+          type: object
+          description: |
+            Optional correlation metadata (e.g.
+            `{"run": "ci-123"}`), echoed back on every OWNER-facing read
+            surface (inbox get/list, message poll/latest/wait/batch, webhook
+            payload). NEVER exposed on either anonymous surface (the instant
+            `.md` endpoints or `GET /public/emails/{email}/messages`).
+            Must be a JSON object (`422 metadata_must_be_object` otherwise),
+            at most 4096 bytes of compact UTF-8 JSON and at most 50
+            top-level keys (`422 metadata_too_large` otherwise). Omitted
+            defaults to `{}`.
+
+    Domain:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - verification_txt_host
+        - verification_token
+        - mx_target
+        - last_checked_at
+        - last_error
+        - verified_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: The domain public ID.
+        name:
+          type: string
+          description: The FQDN, stored lowercase. Immutable after create.
+        status:
+          type: string
+          enum: [pending_dns, verified, failed, disabled]
+        verification_txt_host:
+          type: string
+          description: The TXT record host to publish (`_mailsocket-verify.<name>`).
+        verification_token:
+          type: string
+          description: The TXT record value to publish at `verification_txt_host`.
+        mx_target:
+          type: string
+          description: The MX target that must be present once DNS is live (`mx.mailsocket.app`).
+        last_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        catch_all:
+          type: boolean
+          description: |
+            True when unmatched local parts on this
+            (verified) domain route to catch_all_inbox_id. Toggled via
+            `PATCH /domains/{id}/catch_all`.
+        catch_all_inbox_id:
+          type: string
+          nullable: true
+          description: The catch-all inbox's public ID, or null when catch-all has never been configured.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DomainWrite:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 253
+          description: |
+            The fully-qualified domain name to register (e.g.
+            `otp.example.com`). Lower-cased before validation. Rejected
+            (`422 validation_error`) if it is not a valid FQDN, or if it is
+            a subdomain of `inboxpipe.net`/`mailsocket.app`. Rejected with
+            `409 domain_taken` if already registered by any account.
+
+    MessageStatus:
+      type: string
+      enum: [received, parsing, parsed, failed]
+
+    MessageSummary:
+      type: object
+      required:
+        - id
+        - inbox_id
+        - from
+        - to
+        - cc
+        - subject
+        - received_at
+        - status
+        - has_html
+        - metadata
+      properties:
+        id:
+          type: string
+        inbox_id:
+          type: string
+        from:
+          type: string
+          description: The From header.
+        to:
+          type: array
+          items:
+            type: string
+        cc:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        received_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/MessageStatus"
+        otp:
+          type: [string, "null"]
+        otp_confidence:
+          type: [number, "null"]
+        magic_link:
+          type: [string, "null"]
+        links:
+          type: [array, "null"]
+          items:
+            type: string
+        detected_otp:
+          type: [string, "null"]
+        otp_context:
+          type: [string, "null"]
+          description: |
+            A short (≤160 character) plain-text snippet around the extracted
+            `otp`, e.g. "Your verification code is 123456. It expires in 10
+            minutes." HTML is stripped, whitespace collapsed, and the window is
+            bounded so the full body is never exposed. Null when there is no
+            OTP or its location cannot be found. Best-effort, additive.
+        otp_candidates:
+          type: [array, "null"]
+          description: |
+            Ranked plausible codes beyond the primary `otp` (the also-rans an
+            agent can use to disambiguate), scored with the same logic as the
+            primary extraction. Each item is `{code, confidence}`. Null/empty
+            when there is only one plausible code or none.
+          items:
+            type: object
+            required: [code, confidence]
+            properties:
+              code:
+                type: string
+              confidence:
+                type: number
+        provider_hint:
+          type: [string, "null"]
+          description: |
+            Best-effort label of the sending service derived from the From
+            header domain (e.g. "github", "google", "stripe") via a small
+            static map. Null when the domain is unknown. Convenience only; not
+            authoritative, no network lookup.
+        read:
+          type: boolean
+          description: Whether the message has been marked read (`read_at IS NOT NULL`).
+        metadata:
+          type: object
+          description: |
+            The owning inbox's `metadata` (`{}` when unset), echoed on every
+            authenticated read. Never present on the public-messages payload.
+
+    Message:
+      type: object
+      description: |
+        Full message representation: `MessageSummary` minus `has_html`, plus
+        `envelope_from`, `envelope_recipient`, `text` and `html`.
+      required:
+        - id
+        - inbox_id
+        - from
+        - to
+        - cc
+        - subject
+        - received_at
+        - status
+        - envelope_from
+        - envelope_recipient
+        - text
+        - html
+        - metadata
+      properties:
+        id:
+          type: string
+        inbox_id:
+          type: string
+        from:
+          type: string
+          description: The From header.
+        to:
+          type: array
+          items:
+            type: string
+        cc:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        received_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/MessageStatus"
+        otp:
+          type: [string, "null"]
+        otp_confidence:
+          type: [number, "null"]
+        magic_link:
+          type: [string, "null"]
+        links:
+          type: [array, "null"]
+          items:
+            type: string
+        detected_otp:
+          type: [string, "null"]
+        otp_context:
+          type: [string, "null"]
+          description: A short (≤160 character) plain-text snippet around `otp`; null when no OTP or not locatable.
+        otp_candidates:
+          type: [array, "null"]
+          description: Ranked plausible codes beyond the primary `otp`; null/empty when only one or none.
+          items:
+            type: object
+            required: [code, confidence]
+            properties:
+              code:
+                type: string
+              confidence:
+                type: number
+        provider_hint:
+          type: [string, "null"]
+          description: Best-effort sending-service label from the From domain; null when unknown.
+        envelope_from:
+          type: string
+        envelope_recipient:
+          type: string
+        text:
+          type: string
+          description: The plain-text body.
+        html:
+          type: string
+          description: The sanitized HTML body.
+        read:
+          type: boolean
+          description: Whether the message has been marked read (`read_at IS NOT NULL`).
+        metadata:
+          type: object
+          description: |
+            The owning inbox's `metadata` (`{}` when unset).
+            Present in poll/latest/wait/batch fetch AND the webhook delivery
+            payload (which is this exact schema).
+
+    Pagination:
+      type: object
+      required: [next_cursor, has_more]
+      properties:
+        next_cursor:
+          type: [string, "null"]
+          description: Opaque cursor for the next page, or null when there is none.
+        has_more:
+          type: boolean
+
+    InboxListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inbox"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    MessageSummaryListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageSummary"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    MessageBatchRequest:
+      type: object
+      required: [action, ids]
+      properties:
+        action:
+          type: string
+          enum: [mark_read, delete, fetch]
+        ids:
+          type: array
+          items:
+            type: string
+            maxLength: 32
+          minItems: 1
+          maxItems: 100
+          description: Message public ids. Duplicates are de-duplicated (order-preserving) before processing.
+
+    MessageBatchResultItem:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [ok, deleted, not_found]
+        message:
+          $ref: "#/components/schemas/Message"
+          description: Present only for `action=fetch` results with `status=ok`.
+
+    MessageBatchResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [results]
+          properties:
+            results:
+              type: array
+              description: Same order as the input `ids`.
+              items:
+                $ref: "#/components/schemas/MessageBatchResultItem"
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, fields]
+          properties:
+            code:
+              type: string
+              enum:
+                - authentication_required
+                - account_forbidden
+                - not_found
+                - method_not_allowed
+                - not_acceptable
+                - conflict
+                - plan_limit_reached
+                - slug_taken
+                - unsupported_media_type
+                - validation_error
+                - rate_limited
+                - too_many_wait_requests
+                - wait_capacity
+                - server_error
+                - plan_upgrade_required
+                - webhook_entitlement_required
+                - webhook_not_configured
+                - webhook_ssrf_rejected
+                - webhook_unreachable
+                - byod_disabled
+                - domain_entitlement_required
+                - domain_limit_reached
+                - domain_taken
+                - domain_has_inboxes
+                - domain_verify_rate_limited
+                - domain_not_found_or_unverified
+                - public_not_allowed_on_custom_domain
+                - metadata_must_be_object
+                - metadata_too_large
+                - catch_all_entitlement_required
+                - domain_not_verified
+                - catch_all_target
+                - catch_all_target_invalid
+                - inbox_limit_reached
+                - catch_all_rate_limited
+                - smtp_verify_disabled
+                - verify_full_entitlement_required
+                - batch_too_large
+                - file_too_large
+                - unsupported_file_type
+                - malformed_file
+                - idempotency_key_reused
+                - idempotency_in_progress
+                - inbox_disabled
+            message:
+              type: string
+            request_id:
+              type: string
+              description: Same value as the `X-Request-Id` response header.
+            fields:
+              type: object
+              description: Per-field validation details (empty object when absent).
+              additionalProperties:
+                type: array
+                items:
+                  type: string

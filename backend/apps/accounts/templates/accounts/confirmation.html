@@ -1,0 +1,42 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <title>Account · mailsocket</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card auth-msg">
+    <div class="auth-brand">{% include "dashboard/partials/_brand.html" with brand_origin=APEX_ORIGIN %}</div>
+    {% if reset_requested_for %}
+    {# Enumeration-safe: rendered ONLY from the address the user typed; the same for every account state. #}
+    <h1>Check your email</h1>
+    <p class="big">If there's an account for <strong class="check-email-address"><!--email_off-->{{ reset_requested_for }}<!--/email_off--></strong>, we sent a reset link. Check Spam/Junk if it doesn't arrive within a minute.</p>
+    {% else %}
+    <p class="big">{{ message }}</p>
+    {% endif %}
+    {% if show_resend_form %}
+    {# Expired/invalid verification link: let the user request a fresh one. The address is typed by the user, never derived from the token. #}
+    <form method="post" action="{% url 'accounts:resend-verification' %}" class="resend-form">
+      {% csrf_token %}
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+      <p class="auth-field">
+        <label for="id_resend_email">Email</label>
+        <input type="email" name="email" id="id_resend_email" maxlength="254" autocomplete="email" required>
+      </p>
+      <button type="submit" class="button auth-submit">Resend email</button>
+    </form>
+    {% endif %}
+    <div class="auth-links">
+      <a href="{% url 'accounts:login' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Go to sign in</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

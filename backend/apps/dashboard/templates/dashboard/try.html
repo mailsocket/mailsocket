@@ -1,0 +1,85 @@
+{% load signup_tags %}{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="mailsocket try-it-live — get a throwaway inbox in one click and watch wait_for_otp extract a real OTP. No signup.">
+  <meta name="theme-color" content="#0a0e0d">
+  <meta property="og:title" content="Try it live · mailsocket">
+  <meta property="og:description" content="Get a throwaway inbox in one click and watch wait_for_otp extract a real OTP. No signup.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'dashboard/og-image.png' %}">
+  <title>Try it live · mailsocket</title>
+  {% include "dashboard/partials/_canonical.html" %}
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'dashboard/site.webmanifest' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+  <script defer src="{% static 'dashboard/app.min.js' %}"></script>
+  <script defer src="{% static 'dashboard/try.min.js' %}"></script>
+</head>
+<body class="landing-body">
+  <div class="landing-shell docs-shell">
+    {% include "dashboard/partials/_site_header.html" %}
+
+    <main class="docs-content">
+      <!--email_off-->
+      <p class="landing-eyebrow">Try it live</p>
+      <h1>Feel it in 30 seconds. No signup.</h1>
+      <p class="landing-lead docs-lead">Click the button and get a real inbox address. Send any email with a code to that address, and watch <code>wait_for_otp</code> extract the OTP live.</p>
+
+      <section class="docs-section" id="playground">
+        <div class="try-card">
+          <button id="try-new-inbox" class="button" type="button" data-endpoint="{% url 'dashboard:try-inbox-create' %}{% ref_query %}" data-wait-base="{% url 'dashboard:try-inbox-wait' public_id='__ID__' %}">Get a test inbox</button>
+          <p id="try-error" class="try-error" role="alert" hidden></p>
+        </div>
+
+        <div id="try-inbox" class="try-card" hidden>
+          <div class="landing-code-label">Your throwaway address</div>
+          <p class="try-address"><code id="try-address"></code> <button class="button" type="button" data-copy-target="try-address">Copy</button></p>
+          <p class="docs-note">Send any email with a code to this address, then watch the panel below. No email handy? <button id="try-send-sample" class="button secondary" type="button" disabled data-sample-base="{% url 'dashboard:try-inbox-sample' public_id='__ID__' %}">Send me a sample code</button></p>
+          {% csrf_token %}
+
+          <div class="try-live">
+            <div class="landing-code-label">Live wait_for_otp</div>
+            <div id="try-status" class="try-status" data-waiting="Calling wait_for_otp (long-poll, timeout=25s)…">Calling wait_for_otp (long-poll, timeout=25s)…</div>
+            <dl class="try-result">
+              <dt>OTP</dt><dd id="try-otp" class="try-otp">—</dd>
+              <dt>From</dt><dd id="try-from">—</dd>
+              <dt>Context</dt><dd id="try-context">—</dd>
+              {# ux3 F20: shown only when the parser detected a provider (the sample code has none). #}
+              <dt id="try-provider-label" hidden>Provider</dt><dd id="try-provider" hidden>—</dd>
+            </dl>
+          </div>
+          {# activation item 1: the next step sits next to the aha moment, not only in a footnote below. #}
+          <div class="try-live" id="try-next">
+            <div class="landing-code-label">Next step</div>
+            <p class="docs-note">Run the same wait from your own test or agent. Free plan, no card: your first inbox is created when you verify your email, and the dashboard gives you a ready-to-run snippet with your key.</p>
+            <p><a class="button" href="{% signup_href %}">Start free</a></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="docs-section" id="equivalent">
+        <h2>The same call with your own key</h2>
+        <p>The demo above uses a short-lived demo inbox. With your own API key and inbox, the equivalent call is:</p>
+        <div class="docs-code-block">
+          <div class="landing-code-label">curl</div>
+          <pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command"># remember the newest message id (0 if the inbox is empty) BEFORE</span>
+<span class="code-command"># you send the code, so a fast email still matches (needs jq)</span>
+SINCE=$(<span class="code-command">curl</span> -s <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/inbox_xxx/messages/latest"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span> | <span class="code-command">jq</span> -r <span class="code-string">'.data.id // 0'</span>)
+<span class="code-command"># send a code to your inbox, then wait up to 25s (204 = call again)</span>
+<span class="code-command">curl</span> <span class="code-string">"{{ public_base_url }}/api/v1/inboxes/inbox_xxx/messages/wait?require=otp&amp;since=${SINCE:?no cutoff, install jq and rerun the first line}&amp;timeout=25"</span> \
+  -H <span class="code-string">"Authorization: Bearer $MAILSOCKET_API_KEY"</span></code></pre>
+        </div>
+        <p class="docs-note">When you're ready, <a href="{% signup_href %}">Start free</a> to keep an inbox, create an API key, and use <code>wait_for_otp</code> in your tests. The demo inboxes here are short-lived and cleared automatically.</p>
+      </section>
+      <!--/email_off-->
+    </main>
+
+    {% include "dashboard/partials/_site_footer.html" %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Runtime shape only; entrypoint writes /etc/postfix/transport.cf mode 0640.
+# Credentials come from the deployment environment and are never baked into the image.
+#  (BYOD): the shared apex keeps its static hash:/etc/postfix/transport
+# fallback entry (main.cf lists it AFTER this pgsql map); this pgsql map routes
+# verified custom domains to the same mailsocket: pipe transport.
+hosts = db
+user = <POSTFIX_DB_READER_USER>
+password = <POSTFIX_DB_READER_PASSWORD>
+dbname = <DB_NAME>
+query = SELECT 'mailsocket:' FROM domains_domain WHERE name = '%s' AND status = 'verified'

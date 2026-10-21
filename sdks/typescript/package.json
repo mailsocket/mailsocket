@@ -1,0 +1,58 @@
+{
+  "name": "mailsocket-sdk",
+  "version": "0.3.1",
+  "description": "Official TypeScript client for the mailsocket REST API — one line to wait for an OTP.",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/rename-cjs.mjs",
+    "test": "npm run build && node --test --no-warnings test/client.test.mjs test/require.test.cjs test/packed.test.mjs"
+  },
+  "keywords": [
+    "mailsocket",
+    "email",
+    "otp",
+    "inbox",
+    "magic-link"
+  ],
+  "homepage": "https://mailsocket.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mailsocket/mailsocket-sdk.git",
+    "directory": "typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/mailsocket/mailsocket-sdk/issues"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

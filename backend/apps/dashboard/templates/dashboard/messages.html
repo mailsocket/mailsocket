@@ -1,0 +1,33 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Messages · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Messages</h1><p>Newest messages first.</p></div>{% if outbound_ui %}<a class="button" href="{% url 'dashboard:compose' %}">Compose</a>{% endif %}</header>
+<div class="toolbar">
+<nav class="tabs" aria-label="Read filter">
+  <a{% if not filters.read %} class="active"{% endif %} href="?{% if filter_query %}{{ filter_query }}{% endif %}">All</a>
+  <a{% if filters.read == 'false' %} class="active"{% endif %} href="?read=false">Unread</a>
+</nav>
+<nav class="tabs" aria-label="View mode">
+  <a{% if view_mode == 'list' %} class="active"{% endif %} href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}view=list">List</a>
+  <a{% if group_by == 'sender' %} class="active"{% endif %} href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}group_by=sender&amp;view=grouped">By sender</a>
+  <a{% if group_by == 'subject' %} class="active"{% endif %} href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}group_by=subject&amp;view=grouped">By subject</a>
+</nav>
+</div>
+<form method="get" class="filter card">
+  <label>Inbox <select name="inbox"><option value="">All inboxes</option>{% for inbox in inboxes %}<option value="{{ inbox.public_id }}"{% if selected_inbox.pk == inbox.pk %} selected{% endif %}>{{ inbox.label|default:inbox.address }}</option>{% endfor %}</select></label>
+  <label>Domain <select name="domain_id"><option value=""{% if domain_filter == 'all' %} selected{% endif %}>All domains</option><option value="shared"{% if domain_filter == 'shared' %} selected{% endif %}>Shared</option>{% for domain in domains %}<option value="{{ domain.public_id }}"{% if selected_domain.pk == domain.pk %} selected{% endif %}>{{ domain.name }}</option>{% endfor %}</select></label>
+  <label>Subject <input type="text" name="subject_contains" maxlength="200" value="{{ filters.subject_contains|default:'' }}" placeholder="contains"></label>
+  <label>From <input type="text" name="from" maxlength="200" value="{{ filters.from|default:'' }}" placeholder="contains"></label>
+  <label>Search <input type="text" name="q" maxlength="200" value="{{ filters.q|default:'' }}" placeholder="subject or from"></label>
+  <label class="checkbox"><input type="checkbox" name="has_otp" value="1"{% if filters.has_otp %} checked{% endif %}> has OTP</label>
+  <button class="button" type="submit">Filter</button>
+  {% if filters.subject_contains or filters.from or filters.has_otp or filters.q or selected_domain or domain_filter == 'shared' %}<a class="more" href="?{% if selected_inbox %}inbox={{ selected_inbox.public_id|urlencode }}{% endif %}">Clear</a>{% endif %}
+</form>
+{% if view_mode == 'grouped' %}
+<section class="card">{% include 'dashboard/partials/message_groups.html' %}</section>
+{% if truncated %}<p class="notice">Showing newest 200 — narrow with filters.</p>{% endif %}
+{% else %}
+<section class="card">{% include 'dashboard/partials/message_rows.html' %}</section>
+{% if next_cursor %}<a class="button more" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}cursor={{ next_cursor|urlencode }}">Older messages</a>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}Mailsocket or Mailpit? Mailpit catches mail your own app sends. mailsocket gives you real inboxes that receive OTPs and magic links from third parties.{% endblock %}
+{% block eyebrow %}Compare{% endblock %}
+{% block h1 %}Mailsocket or Mailpit?{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Both help you test email. They solve different problems, and many teams use both.</p>{% endblock %}
+
+{% block content %}
+{% include "dashboard/partials/_compare_checked.html" %}
+
+<section class="docs-section" id="short-answer">
+  <h2>The short answer</h2>
+  <p><a href="{{ src.repo }}" rel="noopener">Mailpit</a> is a great tool. It is free and open source (MIT licence), and it acts as an SMTP server with a web interface and a REST API, so you can catch and inspect the mail your own app sends in local and staging environments (<a href="{{ src.repo }}" rel="noopener">source</a>).</p>
+  <p>mailsocket is for a different job: real inboxes on the internet that receive mail from third parties. Think OAuth and identity providers, SaaS signups, or a CI run against real senders. Each test can create its own isolated inbox, the OTP or magic link is extracted for you, and there is no mail server to run.</p>
+</section>
+
+<section class="docs-section" id="table">
+  <h2>Side by side</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>&nbsp;</th><th>Mailpit</th><th>mailsocket</th></tr></thead>
+      <tbody>
+        <tr><td>Price</td><td>✅ Free, open source (MIT) (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>Free plan ({{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}); paid plans from {{ ms.pro.price }}</td></tr>
+        <tr><td>Who runs it</td><td>You do: a single binary or a Docker image (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Hosted, nothing to install or run</td></tr>
+        <tr><td>Works offline, on your laptop</td><td>✅ Yes (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No, it needs internet access</td></tr>
+        <tr><td>Catches mail your app sends over SMTP</td><td>✅ Yes, it is an SMTP server (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No, your app sends mail normally and it arrives like any other email</td></tr>
+        <tr><td>Receives mail from third parties on the internet</td><td>Not listed in its features (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Yes, real addresses on <code>{{ ms.mail_domain }}</code></td></tr>
+        <tr><td>OTP and magic link extracted to JSON</td><td>Not listed in its features (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Yes, every plan</td></tr>
+        <tr><td>One call that waits for the code</td><td>Not listed in its features (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Yes, up to {{ ms.wait_max }}s per call, every plan</td></tr>
+        <tr><td>HTML, link and spam checks</td><td>✅ Yes (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
+        <tr><td>Simulated SMTP errors (chaos testing)</td><td>✅ Yes (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
+        <tr><td>Webhook on new mail</td><td>✅ Optional (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>{% if ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>MCP server for AI agents</td><td>Not listed in its features (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Yes, every plan</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="choose-them">
+  <h2>When Mailpit is the better choice</h2>
+  <ul class="docs-steps">
+    <li>You only need to see the mail your own app sends, in local development or a staging environment.</li>
+    <li>You want something free and open source that you control, with no account and no outside service.</li>
+    <li>You need to work offline, or mail must never leave your network.</li>
+    <li>You want to check how an email renders, test its links, or score it for spam before it goes out.</li>
+  </ul>
+  <p>In those cases Mailpit is the simpler and cheaper answer, and we would recommend it.</p>
+</section>
+
+<section class="docs-section" id="choose-mailsocket">
+  <h2>When to choose mailsocket</h2>
+  <ul class="docs-steps">
+    <li>The email comes from someone else: an OAuth or identity provider, a SaaS product you sign up to, or your production mail provider. A local SMTP catcher never sees that mail.</li>
+    <li>You run tests in parallel and want each test to have its own inbox, created by one API call and isolated from the others.</li>
+    <li>You want the code, not the email: one call waits until the OTP or magic link arrives and returns it as JSON.</li>
+    <li>You do not want to run, secure or upgrade a mail server in CI.</li>
+    <li>An AI agent needs an inbox: there is an MCP server, and an agent can get an API key without a signup form.</li>
+  </ul>
+</section>
+
+{% include "dashboard/partials/_compare_footer.html" %}
+{% endblock %}

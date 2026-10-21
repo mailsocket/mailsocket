@@ -1,0 +1,215 @@
+name: mailsocket
+
+# (no time-based purge). 5 x 10 MB per container; at the 2026-10-12 volume
+# (6.9 MB total, all containers) that holds well over 14 days. Applied to EVERY
+# service (backend/tests/test_retention_ops.py pins it). Takes effect when a
+# container is recreated.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    logging: *default-logging
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mailsocket}
+      POSTGRES_USER: ${DB_USERNAME:-mailsocket}
+      POSTGRES_PASSWORD: ${DB_PASS:?set DB_PASS in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - mail_internal
+    # `postgres` itself (gosu), so no cap_drop; block privilege re-gain.
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mailsocket} -d ${DB_NAME:-mailsocket}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+      EMAIL_HOST: postfix
+      EMAIL_PORT: "25"
+      # below), not the whole mail_internal subnet. Local dev/e2e run without
+      # compose and keep base.py's loopback default.
+      INGEST_ALLOWED_CIDRS: 172.30.0.250/32
+      # The mcp service's static app_public address: its internal calls carry
+      # no CF-Connecting-IP by design. Exempts ONLY the edge-header anomaly
+      # counter (EdgeHeaderMonitorMiddleware), never any IP rate-limit logic.
+      EDGE_MONITOR_EXEMPT_CIDRS: 172.29.0.250/32
+      # (cloudflared's pinned address below). Keep the two in sync
+      # (apps/accounts/tests/test_client_ip.py pins it).
+      TRUSTED_PROXY_CIDRS: 172.29.0.249/32
+      POSTFIX_DB_READER_USER: ${POSTFIX_DB_READER_USER:?set POSTFIX_DB_READER_USER in .env}
+      POSTFIX_DB_READER_PASSWORD: ${POSTFIX_DB_READER_PASSWORD:?set POSTFIX_DB_READER_PASSWORD in .env}
+    # wait-cap: 3 x 32 gthread = 96 slots; WAIT_CAPACITY_LIMIT=64 leaves >= 24
+    # for non-wait traffic. cap r2: sizing is env-driven from ONE place —
+    # GUNICORN_WORKERS / GUNICORN_THREADS in .env feed BOTH this command line
+    # (compose interpolation) and Django's settings (env_file), and the
+    # entrypoint's `manage.py check` refuses an unsafe combination
+    # (apps.accounts.checks). Defaults must equal config/settings/base.py
+    # (test_wait_capacity_headroom pins this line and the Dockerfile CMD).
+    # --worker-connections == --threads: a worker with every thread busy stops
+    # accepting, so the kernel routes new requests to a worker with a free
+    # thread instead of queueing them behind held long-poll waits.
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "${GUNICORN_WORKERS:-3}", "--threads", "${GUNICORN_THREADS:-32}", "--worker-connections", "${GUNICORN_THREADS:-32}", "--timeout", "120", "--max-requests", "1000", "--max-requests-jitter", "50", "--access-logfile", "-", "--error-logfile", "-"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      app_public:
+      mail_internal:
+        ipv4_address: 172.30.0.10
+    # 8000 and needs no Linux capability. No read_only rootfs: the entrypoint
+    # runs collectstatic into /app/backend/staticfiles at start.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -H 'Host: mailsocket.app' http://127.0.0.1:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  postfix:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: deploy/postfix/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTFIX_DB_NAME: ${DB_NAME:-mailsocket}
+      POSTFIX_DB_READER_USER: ${POSTFIX_DB_READER_USER:?set POSTFIX_DB_READER_USER in .env}
+      POSTFIX_DB_READER_PASSWORD: ${POSTFIX_DB_READER_PASSWORD:?set POSTFIX_DB_READER_PASSWORD in .env}
+      POSTFIX_QUEUE_MAX_DAYS: ${POSTFIX_QUEUE_MAX_DAYS:-5}
+      MAX_INBOUND_BYTES: "10485760"
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    ports:
+      - "25:25"
+    volumes:
+      - postfix_queue:/var/spool/postfix
+      - ${POSTFIX_INGEST_SECRET_FILE:-./secrets/ingest_shared_secret}:/run/secrets/ingest_shared_secret:ro
+      - ${POSTFIX_SIGNING_KEY_FILE:-./secrets/dkim/ms1.private}:/run/secrets/ms1.private:ro
+      # Inbound STARTTLS cert (privkey.pem + fullchain.pem). May be empty:
+      # Postfix then stays plaintext (deploy/postfix/tls-setup.sh). operations notes
+      # "Inbound TLS cert".
+      - ./secrets/postfix-tls:/etc/postfix/tls:ro
+    networks:
+      mail_internal:
+        # Static and high (dynamic addresses are handed out low). web's
+        # apps/ingest/tests/test_ingest_cidr_compose.py pins the pair).
+        ipv4_address: 172.30.0.250
+    # postfix/mailsocket-pipe by design, so no cap_drop; block re-gain only.
+    security_opt:
+      - no-new-privileges:true
+    dns:
+      # The Docker embedded resolver forwards to the host's systemd-resolved
+      # stub (127.0.0.53), which is unreachable from the container netns, so MX
+      # lookups fail and ALL outbound mail (verify-email, password-reset) sits
+      # deferred. Pin public resolvers so smtp(8) can resolve recipient MX.
+      - 1.1.1.1
+      - 8.8.8.8
+    healthcheck:
+      test: ["CMD-SHELL", "postfix status && nc -w 5 127.0.0.1 25 </dev/null | grep -m1 -q '^220 mx.inboxpipe.net ESMTP'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # Remote MCP server (Streamable HTTP) for mcp.mailsocket.app -> http://mcp:8080/mcp.
+  # A pure API client: each request brings its caller's own Bearer key and is
+  # forwarded to web with a fresh header set. No DB, no .env, no secrets, and
+  # MAILSOCKET_API_KEY must stay UNSET (the app refuses to start otherwise).
+  # app_public only (never mail_internal); no published port — only
+  # cloudflared reaches it.
+  mcp:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: deploy/mcp/Dockerfile
+    restart: unless-stopped
+    environment:
+      UPSTREAM_BASE_URL: http://web:8000/api/v1
+      UPSTREAM_HOST: dash.mailsocket.app
+      MCP_ALLOWED_HOSTS: mcp.mailsocket.app
+    command: ["uvicorn", "--factory", "mailsocket_mcp.remote:create_app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1", "--limit-concurrency", "64", "--timeout-keep-alive", "5", "--no-access-log", "--no-server-header", "--log-level", "info"]
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      app_public:
+        # Static, high in 172.29.0.0/24 so it can't collide with the dynamic
+        # (low, sequential) addresses of web/cloudflared. web exempts exactly
+        # this /32 from the edge-header monitor (EDGE_MONITOR_EXEMPT_CIDRS).
+        ipv4_address: 172.29.0.250
+    read_only: true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  cloudflared:
+    logging: *default-logging
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    # Token passed via environment (TUNNEL_TOKEN), not argv, so it does not
+    # appear in `ps`/process listings (P3-4). cloudflared reads TUNNEL_TOKEN
+    # automatically for `tunnel run`.
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      app_public:
+        # Static and high (like mcp's .250) so it never collides with the
+        # dynamic low addresses. web trusts CF-Connecting-IP only from this
+        # /32 (TRUSTED_PROXY_CIDRS).
+        ipv4_address: 172.29.0.249
+
+volumes:
+  pgdata:
+  postfix_queue:
+
+networks:
+  app_public:
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+  mail_internal:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

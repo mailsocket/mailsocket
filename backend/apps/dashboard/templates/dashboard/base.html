@@ -1,0 +1,60 @@
+{% load static dashboard_flash %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0e0d">
+  <title>{% block title %}mailsocket{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'dashboard/site.webmanifest' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+  <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
+  <script defer src="{% static 'dashboard/vendor/htmx.min.js' %}"></script>
+  <script defer src="{% static 'dashboard/app.min.js' %}"></script>
+  <script defer src="{% static 'dashboard/playground.min.js' %}"></script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<div class="layout">
+  <aside class="sidebar">
+    {% include "dashboard/partials/_brand.html" %}
+    {# ux3 N7: desktop keeps the full nav (unchanged); phones (<= 640px, CSS only) get a no-JS <details> "Menu" disclosure naming the current page, and "Report a problem" sits next to Sign out. #}
+    <nav class="app-nav-desktop" aria-label="Dashboard">
+      {% include "dashboard/partials/_app_nav_links.html" with include_report=True %}
+    </nav>
+    <details class="app-nav-mobile">
+      <summary><span class="app-nav-menu">Menu</span> <span class="app-nav-current">{% include "dashboard/partials/_app_nav_current.html" %}</span></summary>
+      <nav aria-label="Dashboard">
+        {% include "dashboard/partials/_app_nav_links.html" with include_report=False %}
+      </nav>
+    </details>
+    {% if ms_multi_account %}
+    <section class="account-switcher" aria-label="Account switcher">
+      <p class="muted">Current Account: {{ ms_multi_account.active_name }}</p>
+      {% if ms_multi_account.is_switched %}
+      <form method="post" action="{% url 'dashboard:account-switch' %}" class="inline-form" data-disable-on-submit>
+        {% csrf_token %}<input type="hidden" name="account" value="self"><button class="link-button">Switch to Personal</button>
+      </form>
+      {% endif %}
+      {% for link in ms_multi_account.owned %}
+      <form method="post" action="{% url 'dashboard:account-switch' %}" class="inline-form" data-disable-on-submit>
+        {% csrf_token %}<input type="hidden" name="account" value="{{ link.account_user_id }}"><button class="link-button">{{ link.name }}</button>
+      </form>
+      {% endfor %}
+      <form method="post" action="{% url 'dashboard:account-new' %}" class="inline-form" data-disable-on-submit>
+        {% csrf_token %}<input type="text" name="name" maxlength="80" required placeholder="New account name" aria-label="New account name"><button class="button secondary">New account</button>
+      </form>
+    </section>
+    {% endif %}
+    <a class="app-nav-report" href="{% url 'feedback:app' %}">Report a problem</a>
+    {# No data-disable-on-submit on purpose: sign-out is idempotent (a 2nd POST just ends an already-ended session); allowlisted in test_qadash_batch.py #}<form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="link-button">Sign out</button></form>
+  </aside>
+  <main class="content" id="main-content" tabindex="-1">
+    {% dashboard_flashes %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

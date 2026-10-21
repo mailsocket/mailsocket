@@ -1,0 +1,66 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Domains · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Custom domains</h1><p>Receive mail at your own domain instead of a shared address. Custom domains require a Scale or Business plan.</p></div></header>
+{% if flash %}<div class="flash" role="alert">{{ flash }}</div>{% endif %}
+<section id="domain-result" aria-live="polite"></section>
+{% if show_owner_ui and can_add_domain %}
+<section class="card">
+  <form class="inline-form create-form" method="post" action="{% url 'dashboard:domain-create' %}" hx-post="{% url 'dashboard:domain-create' %}" hx-target="#domain-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    {% csrf_token %}<input name="name" maxlength="253" placeholder="otp.example.com" aria-label="Domain name"><button class="button">Add domain</button>
+  </form>
+</section>
+{% endif %}
+{# ux4 R3-7: no rows -> an empty-state card, not a full-width row inside a scrolling table. #}
+<section class="card">{% if domains %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table">
+<table class="data-table domains-table">
+  <thead><tr><th class="col-domain">Name</th><th>Status</th><th class="col-time">Last checked</th><th class="col-error">Last error</th>{% if show_owner_ui %}<th class="col-actions">Actions</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for domain in domains %}
+  <tr>
+    <td class="nowrap"><code class="addr">{{ domain.name }}</code></td>
+    <td class="nowrap">
+      {% if domain.status == 'verified' %}<span class="status on">Verified</span>
+      {% elif domain.status == 'pending_dns' %}<span class="status warn">Pending DNS</span>
+      {% elif domain.status == 'failed' %}<span class="status err">Failed</span>
+      {% else %}<span class="status muted">Disabled</span>{% endif %}
+    </td>
+    <td class="nowrap num">{% if domain.last_checked_at %}{{ domain.last_checked_at|date:'Y-m-d H:i' }}{% else %}never{% endif %}</td>
+    <td class="wrap-error">{% if domain.last_error %}<span class="muted">{{ domain.last_error }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+    {% if show_owner_ui %}
+    <td class="actions">
+      <form method="post" action="{% url 'dashboard:domain-verify' domain.public_id %}" hx-post="{% url 'dashboard:domain-verify' domain.public_id %}" hx-target="#domain-result" hx-swap="innerHTML" hx-disabled-elt="find button">{% csrf_token %}<button>Verify</button></form>
+      <form method="post" action="{% url 'dashboard:domain-delete' domain.public_id %}" hx-post="{% url 'dashboard:domain-delete' domain.public_id %}" hx-target="#domain-result" hx-swap="innerHTML" hx-disabled-elt="find button" hx-confirm="Delete the domain {{ domain.name }}? Mail to it will stop being accepted.">{% csrf_token %}<button class="danger">Delete</button></form>
+    </td>
+    {% endif %}
+  </tr>
+  {% if domain.status == 'pending_dns' or domain.status == 'failed' %}
+  <tr class="detail-row">
+    <td colspan="{% if show_owner_ui %}5{% else %}4{% endif %}">
+      <details class="connect">
+        <summary>DNS instructions</summary>
+        <div class="connect-body">
+          <p>Add these two DNS records for <code>{{ domain.name }}</code>, then click Verify.</p>
+          <div class="snippet">
+            <div class="snippet-label">TXT record</div>
+            <pre tabindex="0" role="region" aria-label="Code example">host: {{ domain.verification_txt_host }}
+value: {{ domain.verification_token }}</pre>
+          </div>
+          <div class="snippet">
+            <div class="snippet-label">MX record</div>
+            <pre tabindex="0" role="region" aria-label="Code example">host: {{ domain.name }}
+priority: 10
+value: {{ mx_target }}</pre>
+          </div>
+          <p class="hint">Verification checks that these records exist — it never connects to your servers. Mail is delivered to your domain only once the MX record above is in place.</p>
+          <p class="hint">DNS changes can take up to an hour to propagate.</p>
+        </div>
+      </details>
+    </td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>{% else %}<p class="empty-state">No custom domains yet.{% if not can_add_domain %} <a href="{{ UPGRADE_URL }}">Upgrade to Scale or Business</a> to add one.{% endif %}</p>{% endif %}</section>
+{% endblock %}

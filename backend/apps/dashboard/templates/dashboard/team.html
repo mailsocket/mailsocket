@@ -1,0 +1,14 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Team · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Team</h1><p>Invite teammates to your Business plan seats.</p></div></header>
+{% if not plan_has_team_seats %}<section class="card upsell" id="team-upsell"><p>Team seats come with {{ team_plan_name }}. <a class="button secondary" href="{{ UPGRADE_URL }}">Upgrade</a></p></section>
+{% elif not can_invite %}<div class="card flash">No seats available on your current plan. Upgrade or free up a seat to invite another member.</div>{% endif %}
+<section class="card">
+  <form class="inline-form create-form" method="post" action="{% url 'dashboard:team-invite-create' %}" hx-post="{% url 'dashboard:team-invite-create' %}" hx-target="#team-rows" hx-swap="innerHTML" data-error-target="#team-result" hx-disabled-elt="find button">
+    {% csrf_token %}<fieldset class="bare-fieldset"{% if not plan_has_team_seats %} disabled{% endif %}><!--email_off--><input type="email" name="email" maxlength="254" required placeholder="teammate@example.com" aria-label="Invite email"><!--/email_off--><button class="button">Send invite</button></fieldset>
+  </form>
+</section>
+<section id="team-result" aria-live="polite"></section>
+<section id="team-rows">{% include 'dashboard/partials/team_rows.html' %}</section>
+{% endblock %}

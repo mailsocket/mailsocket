@@ -1,0 +1,244 @@
+{% load signup_tags %}{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Get the OTP, not the email. mailsocket gives your signup tests, scripts and AI agents a real inbox address, and one API call waits until the code arrives, then returns the OTP or magic link as JSON.">
+  <meta name="theme-color" content="#0a0e0d">
+  <meta property="og:title" content="mailsocket · Get the OTP, not the email">
+  <meta property="og:description" content="One API call waits until the code arrives, then returns the OTP or magic link from the signup email as JSON. MCP server included.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'dashboard/og-image.png' %}">
+  <title>mailsocket · Get the OTP, not the email</title>
+  {% include "dashboard/partials/_canonical.html" %}
+  <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/favicon.svg' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'dashboard/favicon.ico' %}">
+  <link rel="apple-touch-icon" href="{% static 'dashboard/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'dashboard/site.webmanifest' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/app.min.css' %}">
+  <script defer src="{% static 'dashboard/app.min.js' %}"></script>
+</head>
+<body class="landing-body landing-home">
+  <div class="landing-shell">
+    {% include "dashboard/partials/_site_header.html" %}
+
+    <main>
+      <section class="landing-hero">
+        <div class="landing-hero-copy">
+          <h1>Get the OTP, not the email</h1>
+          <p class="landing-lead">Give your signup test, script or AI agent a real inbox address. One API call waits until the code arrives, then hands back the code or the magic link as JSON, so you can drop the shared Gmail account and the <span class="landing-nowrap">IMAP-plus-regex</span> script that reads it.</p>
+          <div class="landing-actions">
+            <a class="landing-button landing-button-primary" href="{% signup_href %}">Start free</a>
+            <a class="landing-button landing-button-secondary" href="{% try_href %}">Try it without signup</a>
+          </div>
+          {% if paid_from_price %}<p class="landing-pricing-note">Free plan, paid plans from {{ paid_from_price }}/month. <a href="{% url 'dashboard:pricing' %}">See pricing</a></p>{% endif %}
+        </div>
+        {# Product visual: two real wait() 200 bodies (MessageSerializer output captured by running the SDK against the API, each email stored and parsed by the real ingest pipeline): an OTP email and a magic-link email, both abridged to the same 9 of 22 fields. The tabs are pure-CSS radio :checked (no JS, CSP-safe). #}
+        <figure class="landing-response">
+          <input class="landing-tab-input" type="radio" name="hero-kind" id="hero-kind-otp" checked>
+          <input class="landing-tab-input" type="radio" name="hero-kind" id="hero-kind-link">
+          <div class="landing-response-tabs">
+            <label class="landing-tab landing-tab-otp" for="hero-kind-otp">OTP email</label>
+            <label class="landing-tab landing-tab-link" for="hero-kind-link">Magic-link email</label>
+          </div>
+          <div class="landing-response-panel landing-response-otp">
+            <div class="landing-response-head"><span class="landing-response-status">200</span> <code tabindex="0" role="region" aria-label="Code example">GET /api/v1/inboxes/{id}/messages/wait?require=otp</code></div>
+            <!--email_off--><pre data-no-copy tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"data"</span>: {
+    <span class="code-key">"id"</span>: <span class="code-string">"msg_Z5hG9US_6l2IfBBendvv5F3n"</span>,
+    <span class="code-key">"inbox_id"</span>: <span class="code-string">"inbox_sM7DQ3X5RSMdb4QThg0ECI6E"</span>,
+    <span class="code-key">"from"</span>: <span class="code-string">"Acme &lt;no-reply@acme.dev&gt;"</span>,
+    <span class="code-key">"subject"</span>: <span class="code-string">"Your Acme verification code"</span>,
+    <span class="code-key">"received_at"</span>: <span class="code-string">"2026-10-02T06:23:26Z"</span>,
+    <span class="code-key">"otp"</span>: <span class="code-otp">"482193"</span>,
+    <span class="code-key">"otp_confidence"</span>: <span class="code-num">0.95</span>,
+    <span class="code-key">"otp_context"</span>: <span class="code-string">"Your Acme code is 482193"</span>,
+    <span class="code-key">"magic_link"</span>: <span class="code-num">null</span>
+  }
+}</code></pre><!--/email_off-->
+          </div>
+          <div class="landing-response-panel landing-response-link">
+            <div class="landing-response-head"><span class="landing-response-status">200</span> <code tabindex="0" role="region" aria-label="Code example">GET /api/v1/inboxes/{id}/messages/wait?require=link</code></div>
+            <!--email_off--><pre data-no-copy tabindex="0" role="region" aria-label="Code example"><code>{
+  <span class="code-key">"data"</span>: {
+    <span class="code-key">"id"</span>: <span class="code-string">"msg_hhgLcirJyxOvcOfvygxtTZrf"</span>,
+    <span class="code-key">"inbox_id"</span>: <span class="code-string">"inbox_-ppgraB2rrtW-daLNz527tLz"</span>,
+    <span class="code-key">"from"</span>: <span class="code-string">"Acme &lt;no-reply@acme.dev&gt;"</span>,
+    <span class="code-key">"subject"</span>: <span class="code-string">"Sign in to Acme"</span>,
+    <span class="code-key">"received_at"</span>: <span class="code-string">"2026-10-02T08:36:32Z"</span>,
+    <span class="code-key">"otp"</span>: <span class="code-num">null</span>,
+    <span class="code-key">"otp_confidence"</span>: <span class="code-num">0.0</span>,
+    <span class="code-key">"otp_context"</span>: <span class="code-num">null</span>,
+    <span class="code-key">"magic_link"</span>: <span class="code-otp">"https://acme.dev/auth?token=9fK2xQ7vLp4Tz8Wb"</span>
+  }
+}</code></pre><!--/email_off-->
+          </div>
+          <figcaption class="landing-response-foot">
+            <p class="landing-confidence"><code>otp_confidence</code> is a heuristic score: 0.95 next to a word like &ldquo;code&rdquo;, 0.35 for a bare number. <a href="{% url 'dashboard:docs' %}#min-confidence">More in the docs&nbsp;&rarr;</a></p>
+            <p>9 of 22 fields shown. The rest include <code>to</code>, <code>links</code>, <code>text</code> and <code>html</code>.</p>
+          </figcaption>
+        </figure>
+      </section>
+
+      <!--email_off--><section class="landing-steps" id="how-it-works" aria-labelledby="how-it-works-title">
+        <h2 id="how-it-works-title">How a signup test uses it</h2>
+        <ol class="landing-steps-list">
+          <li class="landing-step">
+            <div class="landing-step-body">
+              <span class="landing-step-num" aria-hidden="true">1</span>
+              <h3>Create an inbox</h3>
+              <p>One POST returns an inbox id and a random address on <code>{{ mail_domain }}</code> (<a href="{% url 'dashboard:docs' %}#inbox-domain">why this domain</a>). {% if free_tier %}The free plan includes {{ free_tier.inboxes_display }}; the first is created for you when you verify your email, and you can{% else %}You can{% endif %} reuse it on every run: a wait only matches mail received after its <code>since</code> point (step 3), so an earlier run's code is not returned. Paid plans hold more inboxes, so parallel runs can each get their own.</p>
+            </div>
+            <code class="landing-step-code" tabindex="0" role="region" aria-label="Code example"><span class="code-command">POST</span> /api/v1/inboxes
+<span class="code-comment">→</span> <span class="code-key">"address"</span>: <span class="code-string">"eqxwebxjzv8kfrvo@{{ mail_domain }}"</span></code>
+          </li>
+          <li class="landing-step">
+            <div class="landing-step-body">
+              <span class="landing-step-num" aria-hidden="true">2</span>
+              <h3>Type the address into the form you are testing</h3>
+              <p>Your test fills in the email field and submits, the way a user would. Your app sends its normal verification email and needs no changes; mailsocket accepts it and pulls out the code and the link as it arrives.</p>
+            </div>
+            <code class="landing-step-code" tabindex="0" role="region" aria-label="Code example">page.fill(<span class="code-string">"#email"</span>, inbox[<span class="code-string">"address"</span>])
+page.click(<span class="code-string">"text=Create account"</span>)</code>
+          </li>
+          <li class="landing-step">
+            <div class="landing-step-body">
+              <span class="landing-step-num" aria-hidden="true">3</span>
+              <h3>Call wait() for the code</h3>
+              <p>The request stays open for up to 25 seconds. It answers 200 with the message (the JSON above) the moment a code is found, or 204 when time runs out, and you call it again. By default only mail that arrives after the call starts matches; pass <code>since</code> with a timestamp from just before the submit so a fast email is not missed. For a magic link, use <code>require=link</code>.</p>
+            </div>
+            <code class="landing-step-code" tabindex="0" role="region" aria-label="Code example"><span class="code-command">GET</span> /api/v1/inboxes/{id}/messages/wait?require=otp
+<span class="code-comment">→</span> 200 {<span class="code-key">"data"</span>: {<span class="code-key">"otp"</span>: <span class="code-otp">"482193"</span>, …}}</code>
+          </li>
+        </ol>
+      </section><!--/email_off-->
+
+      {# Mirrored row: the sample sits left and the copy right (copy first on narrow screens). #}
+      <section class="landing-code-section landing-code-flip" id="code-sample">
+        <div class="landing-section-copy">
+          <h2>The same flow with the Python SDK</h2>
+          <p>The sample reuses your existing inbox; <code>create_inbox()</code> makes a new one when your plan has room. <code>wait_for_otp()</code> re-issues the 25-second long-poll for you until a code arrives or its own timeout (60 seconds by default) runs out, then returns a <code>WaitResult</code>.</p>
+          <p>The sample passes <code>since</code> with the time just before the submit, so a code that arrives before the wait starts is still matched and an older code in the reused inbox is not. <code>result.confidence</code> is the message's <code>otp_confidence</code>; to skip bare numbers, add <code class="landing-nowrap">min_confidence=0.9</code>.</p>
+          <p>For a magic link, call <code>wait_for_link()</code> and read <code>result.magic_link</code>.</p>
+        </div>
+        <div class="landing-code-card">
+          <div class="landing-code-label">signup_test.py</div>
+          {# Keep sample code plain text (no Cloudflare Email Obfuscation). Runs as written against sdks/python inside a Playwright test (page = the step-2 page). #}
+          <!--email_off--><pre tabindex="0" role="region" aria-label="Code example"><code><span class="code-command">import</span> time
+<span class="code-command">from</span> mailsocket <span class="code-command">import</span> Client
+
+client = Client(<span class="code-string">"ms_live_..."</span>)    <span class="code-comment"># your API key</span>
+inbox = client.list_inboxes()[<span class="code-num">0</span>]  <span class="code-comment"># or create_inbox()</span>
+
+started = time.time()
+page.fill(<span class="code-string">"#email"</span>, inbox[<span class="code-string">"address"</span>])
+page.click(<span class="code-string">"text=Create account"</span>)
+
+result = client.wait_for_otp(inbox[<span class="code-string">"id"</span>], since=started)
+print(result.otp)         <span class="code-comment"># 482193</span>
+print(result.confidence)  <span class="code-comment"># 0.95</span></code></pre><!--/email_off-->
+        </div>
+      </section>
+
+      {# Full-width card grid (breaks the heading-left / card-right rhythm). Every link label names its destination. #}
+      <section class="landing-works" id="works-with" aria-labelledby="works-with-title">
+        <div class="landing-works-head">
+          <h2 id="works-with-title">Call it from your language, your agent, or n8n</h2>
+          <p>The SDKs and the MCP server wrap the same REST endpoints, so a test written against one behaves the same with another. <a class="landing-works-source" href="https://github.com/mailsocket/mailsocket-sdk">SDK source on GitHub</a></p>
+          <p class="landing-works-agents">AI agents can get a key without signing up: one call to <code>POST /api/v1/agents/register</code> returns a key and an inbox. <a href="{% url 'dashboard:docs' %}#sixty-seconds">How it works</a></p>
+        </div>
+        <ul class="landing-works-grid">
+          <li class="landing-works-card">
+            <h3>Python SDK</h3>
+            <code class="landing-works-chip">pip install mailsocket</code>
+            <p>Python 3.9+, no dependencies.</p>
+            <p class="landing-works-links"><a href="{% url 'dashboard:docs' %}#sdks">Python docs</a> <a href="https://pypi.org/project/mailsocket/">PyPI package</a></p>
+          </li>
+          <li class="landing-works-card">
+            <h3>TypeScript SDK</h3>
+            <code class="landing-works-chip">npm i mailsocket-sdk</code>
+            <p>Node 18+, typed.</p>
+            <p class="landing-works-links"><a href="{% url 'dashboard:docs' %}#sdks">TypeScript docs</a> <a href="https://www.npmjs.com/package/mailsocket-sdk">npm package</a></p>
+          </li>
+          <li class="landing-works-card">
+            <h3>n8n</h3>
+            <div class="landing-works-chips">
+              <span><span class="landing-works-chip-label">Settings &rarr; Community nodes &rarr; Install</span><code class="landing-works-chip">n8n-nodes-mailsocket</code></span>
+            </div>
+            <p>Create an inbox and wait for the code in a workflow. Also usable as an AI Agent tool.</p>
+            <p class="landing-works-links"><a href="https://www.npmjs.com/package/n8n-nodes-mailsocket">n8n node</a> <a href="https://docs.n8n.io/integrations/community-nodes/installation-and-management">n8n install guide</a></p>
+          </li>
+          <li class="landing-works-card">
+            <h3>MCP server</h3>
+            <div class="landing-works-chips">
+              <span><span class="landing-works-chip-label">Local, over stdio</span><code class="landing-works-chip">pip install mailsocket-mcp</code></span>
+              <span><span class="landing-works-chip-label">Hosted, no install</span><code class="landing-works-chip">https://mcp.mailsocket.app/mcp</code></span>
+            </div>
+            <p>Gives Claude, Cursor and other MCP clients tools to create an inbox and wait for the code or link.</p>
+            <p class="landing-works-links"><a href="{% url 'dashboard:docs' %}#mcp">MCP setup</a> <a href="https://pypi.org/project/mailsocket-mcp/">PyPI package</a></p>
+          </li>
+          <li class="landing-works-card">
+            <h3>REST API</h3>
+            <div class="landing-works-chips">
+              <span><span class="landing-works-chip-label">Auth header</span><code class="landing-works-chip">Authorization: Bearer &lt;key&gt;</code></span>
+            </div>
+            <p>curl, fetch, requests, any HTTP client.</p>
+            <p class="landing-works-links"><a href="{% url 'dashboard:openapi-yaml' %}">OpenAPI spec</a> <a href="{% url 'dashboard:api-reference' %}">API reference</a></p>
+          </li>
+        </ul>
+      </section>
+
+      {# Full-width heading over two equal-height panels. #}
+      <section class="landing-scope-section" id="scope" aria-labelledby="scope-title">
+        <h2 id="scope-title">What it does, and what it doesn't</h2>
+        <div class="landing-scope">
+          <div class="landing-scope-col">
+            <h3>What it does</h3>
+            <ul>
+              <li>Receives email at addresses on <code>{{ mail_domain }}</code>, or on your own domain on the Scale and Business plans.</li>
+              <li>Extracts the one-time code and the magic link from each message.</li>
+              <li>Returns them as JSON through the wait endpoint, the REST API, a Server-Sent Events stream, or signed webhooks (paid plans).</li>
+              <li>Gives you the full text and HTML body too, when you need more than the code.</li>
+            </ul>
+          </div>
+          <div class="landing-scope-col landing-scope-not">
+            <h3>What it does not do</h3>
+            <ul>
+              <li>Send email. The service only receives.</li>
+              <li>Receive SMS or phone-number codes.</li>
+              <li>Open or click magic links. It extracts them; your code decides what to do.</li>
+              <li>Replace a personal mailbox. There is no IMAP or POP access.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-cta" aria-labelledby="cta-title">
+        <div class="landing-cta-row">
+          <div>
+            <h2 id="cta-title">Try it on your own signup test</h2>
+            <p>The free plan needs no card. Create an inbox, run the test, and look at what <code>wait()</code> sends back.</p>
+          </div>
+          <div class="landing-cta-actions">
+            <a class="landing-button landing-button-primary" href="{% signup_href %}">Start free</a>
+            <a class="landing-button landing-button-secondary" href="{% try_href %}">Try it without signup</a>
+          </div>
+        </div>
+        {# Free-plan limits: the same tier dict /pricing/ renders (views._pricing_context), never literals. #}
+        {% if free_tier %}<div class="landing-limits">
+          <h3>Free plan limits</h3>
+          <dl>
+            <div><dt>Inboxes</dt><dd>{{ free_tier.inboxes_display }}</dd></div>
+            <div><dt>Messages</dt><dd>{{ free_tier.messages_display }}</dd></div>
+            <div><dt>Retention</dt><dd>{{ free_tier.retention_display }}</dd></div>
+            <div><dt>Concurrent waits</dt><dd>{{ free_tier.concurrent_waits }}</dd></div>
+            <div><dt>Webhooks</dt><dd{% if free_tier.webhooks_display == "Not included" %} class="landing-limits-off"{% endif %}>{{ free_tier.webhooks_display }}</dd></div>
+          </dl>
+        </div>{% endif %}
+      </section>
+    </main>
+
+    {% include "dashboard/partials/_site_footer.html" %}
+  </div>
+</body>
+</html>

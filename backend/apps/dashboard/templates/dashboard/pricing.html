@@ -1,0 +1,83 @@
+{% extends "dashboard/docs_base.html" %}
+{% load signup_tags %}
+{% block eyebrow %}Pricing{% endblock %}
+{% block h1 %}Flat monthly plans{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Start free, then upgrade for more inboxes, messages, retention and webhooks. No card required to start.</p>{% endblock %}
+{% block shell_modifier %} pricing-full-bleed{% endblock %}
+
+{% block content %}
+<section class="docs-section" id="plans">
+  <p class="pricing-swipe-hint" aria-hidden="true">Swipe sideways to compare all {{ plans.tiers|length }} plans →</p>
+  <div class="table-wrap pricing-compare-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table pricing-compare-table">
+      <thead>
+        <tr>
+          <th class="pricing-compare-feature-col">&nbsp;</th>
+          {% for tier in plans.tiers %}
+          <th class="pricing-compare-col{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">
+            <div class="pricing-compare-head">
+              <span class="pricing-compare-name">{{ tier.name }}</span>
+              <span class="pricing-compare-price">{{ tier.price }}</span>
+              {% if not tier.available and tier.badge != tier.cta_text %}<span class="pricing-badge pricing-badge-soon">{{ tier.badge }}</span>{% else %}<span class="pricing-badge pricing-badge-slot" aria-hidden="true">&nbsp;</span>{% endif %}
+              {% if tier.available and tier.cta_next and BILLING_CHANGES_PAUSED and request.user.is_authenticated %}
+                {# kill switch, signed-in visitors only: anonymous output is unchanged. #}
+                <button class="landing-button landing-button-primary pricing-compare-cta" type="button" disabled aria-disabled="true">{{ tier.cta_text }}</button>
+                <span class="pricing-compare-then">{{ BILLING_PAUSED_MESSAGE }}</span>
+              {% elif tier.available %}
+                <a class="landing-button landing-button-primary pricing-compare-cta" href="{% signup_href next=tier.cta_next %}">{{ tier.cta_text }}</a>
+                {# ux4 R3-10: a paid tier's "Start free" signs you up on Free first; say how you get the paid plan. #}
+                {% if tier.cta_next %}<span class="pricing-compare-then">then upgrade to {{ tier.name }} in Billing</span>{% endif %}
+              {% else %}
+                <a class="landing-button pricing-compare-cta" href="mailto:{{ tier.cta_mailto }}">{{ tier.cta_text }}</a>
+              {% endif %}
+            </div>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>Inboxes</th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{{ tier.inboxes_display }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th>Messages / mo</th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{{ tier.messages_display }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th>Retention</th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{{ tier.retention_display }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th>Concurrent waits</th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{% if tier.concurrent_waits %}{{ tier.concurrent_waits }}{% else %}—{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th>Webhooks<sup><a href="#webhooks-note" aria-label="About webhooks">1</a></sup></th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{{ tier.webhooks_display }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th>Custom domains</th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{{ tier.domains_display }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th>Extra</th>
+          {% for tier in plans.tiers %}<td class="pricing-compare-num{% if tier.key == 'paid' %} pricing-compare-col-featured{% endif %}" data-tier="{{ tier.key }}">{% if tier.extra %}{{ tier.extra }}{% else %}—{% endif %}</td>{% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="notes">
+  <h2>Good to know</h2>
+  <ul class="docs-steps">
+    <li>Limits reset each calendar month (UTC). Inbox count and message size are hard limits; the monthly message allowance is metered, not blocked: mail over the allowance is still received and there is no overage charge.</li>
+    {# ux4 R3-11c: identical on every plan, so it lives here, not in the comparison table. #}
+    <li id="verify-note">Email verification (<code>/verify</code>) is limited to {{ plans.tiers.0.verify_display }} per account on every plan.</li>
+    <li id="webhooks-note"><sup>1</sup> Webhooks are sent only to public HTTPS URLs and signed with a per-webhook HMAC secret.</li>
+    <li>Enterprise uses Business limits with custom contract terms, arranged with our sales team.</li>
+    {% if plans.tiers.2.available %}<li>Billing is live: Pro, Scale and Business are available for purchase, processed by Lemon Squeezy. Signing up starts you on Free.</li>{% else %}<li>Billing is not yet live for self-serve purchase; contact us to be notified. Signing up starts you on Free.</li>{% endif %}
+  </ul>
+</section>
+{% endblock %}

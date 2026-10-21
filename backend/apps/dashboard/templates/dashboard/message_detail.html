@@ -1,0 +1,3 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{{ message.subject|default:'Message' }} · mailsocket{% endblock %}
+{% block content %}<a class="back" href="{% url 'dashboard:messages' %}">← Messages</a>{% include 'dashboard/partials/message_detail_panel.html' %}{% endblock %}

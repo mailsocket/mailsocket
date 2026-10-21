@@ -1,0 +1,11 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Join team · mailsocket{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Join team</h1><p>Confirm to join this team as a member.</p></div></header>
+<section class="card">
+  <p>You are signed in as {{ request.user.email }}.</p>
+  <form method="post" action="{% url 'dashboard:team-accept-confirm' token %}" data-disable-on-submit>
+    {% csrf_token %}<button class="button">Accept invite</button>
+  </form>
+</section>
+{% endblock %}

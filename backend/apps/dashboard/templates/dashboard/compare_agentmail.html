@@ -1,0 +1,55 @@
+{% extends "dashboard/docs_base.html" %}
+{% block meta_description %}mailsocket vs AgentMail: prices and features side by side, including where AgentMail is the better choice, with sources.{% endblock %}
+{% block eyebrow %}Compare{% endblock %}
+{% block h1 %}mailsocket vs AgentMail{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">AgentMail gives AI agents full two-way email. mailsocket is narrower: inboxes that receive mail and hand you the OTP or magic link.</p>{% endblock %}
+
+{% block content %}
+{% include "dashboard/partials/_compare_checked.html" %}
+
+<section class="docs-section" id="table">
+  <h2>Side by side</h2>
+  <div class="docs-table-wrap" tabindex="0" role="region" aria-label="Table">
+    <table class="docs-table">
+      <thead><tr><th>&nbsp;</th><th>AgentMail</th><th>mailsocket</th></tr></thead>
+      <tbody>
+        <tr><td>Free plan</td><td>✅ 3 inboxes, 3,000 emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>✅ {{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}, {{ ms.free.retention_display }} retention</td></tr>
+        <tr><td>Entry price</td><td>Developer $20/month: 10 inboxes, 10,000 emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>
+        <tr><td>Next plan</td><td>Startup $200/month: 150 inboxes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.scale.name }} {{ ms.scale.price }}: {{ ms.scale.inboxes_display }}, {{ ms.scale.messages_display }}</td></tr>
+        <tr><td>Discount for paying yearly</td><td>✅ 20% (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Monthly only</td></tr>
+        <tr><td>Custom domains</td><td>✅ From the $20 Developer plan, 10 domains (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.domains_plan %}✅ From the {{ ms.domains_plan.name }} plan ({{ ms.domains_plan.price }}){% else %}❌ No{% endif %}</td></tr>
+        <tr><td>WebSocket events</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No; a Server-Sent Events stream instead, every plan</td></tr>
+        <tr><td>Webhooks</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>MCP server</td><td>✅ Hosted, with OAuth sign-in for Claude and ChatGPT (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>✅ Hosted and local, API key only</td></tr>
+        <tr><td>Send, reply and forward email</td><td>✅ Yes (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>❌ No, receive only</td></tr>
+        <tr><td>OTP and magic link extracted to their own fields</td><td>Not listed in its MCP tools (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>✅ Yes, every plan</td></tr>
+        <tr><td>One call that waits for the code</td><td>Not listed in its MCP tools (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>✅ <code>messages/wait</code>, up to {{ ms.wait_max }}s per call, every plan</td></tr>
+        <tr><td>How widely used</td><td>✅ About 1.3 million PyPI downloads of its SDK in the last month (<a href="{{ src.downloads }}" rel="noopener">source</a>)</td><td>A new service with a small user base</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="docs-section" id="choose-them">
+  <h2>When to choose AgentMail</h2>
+  <ul class="docs-steps">
+    <li>Your agent needs to hold conversations: send, reply and forward, not only receive.</li>
+    <li>You want WebSocket events, or custom domains on a $20 plan.</li>
+    <li>You want a larger free message allowance each month.</li>
+    <li>You connect from Claude or ChatGPT and want OAuth sign-in instead of an API key.</li>
+    <li>You want the larger ecosystem: AgentMail is far more widely used today.</li>
+  </ul>
+</section>
+
+<section class="docs-section" id="choose-mailsocket">
+  <h2>When to choose mailsocket</h2>
+  <ul class="docs-steps">
+    <li>The job is getting past a verification step: you want the OTP or magic link as a field, not an email to parse.</li>
+    <li>You want one call that blocks until the code arrives, with no WebSocket client or webhook receiver to run.</li>
+    <li>You write end-to-end tests (pytest, Cypress, Playwright, CI) as well as agents, and want one inbox per test.</li>
+    <li>You want a lower entry price: {{ ms.pro.name }} is {{ ms.pro.price }}.</li>
+  </ul>
+</section>
+
+{% include "dashboard/partials/_compare_footer.html" %}
+{% endblock %}
