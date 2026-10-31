@@ -17,7 +17,7 @@
   <section class="card">
     <span>Webhooks</span>
     <strong>{{ usage.can_enable_webhook|yesno:'Available,Not included' }}</strong>
-    <small>{{ usage.can_enable_webhook|yesno:'Your plan can enable webhooks.,Upgrade to enable webhooks.' }}</small>
+    <small>{% if PAID_UPGRADES_PAUSED %}Paid webhooks are paused for Free accounts.{% else %}{{ usage.can_enable_webhook|yesno:'Your plan can enable webhooks.,Upgrade to enable webhooks.' }}{% endif %}</small>
   </section>
 </div>
 
@@ -51,7 +51,11 @@
   <p class="usage-note">Counted for the current billing period.</p>
 </section>
 
+{% if PAID_UPGRADES_PAUSED %}
+<section class="card" role="status"><p class="usage-note">{{ PAID_UPGRADES_PAUSED_MESSAGE }}</p></section>
+{% else %}
 <section class="card">
   <p class="usage-note">Need more? <a href="{{ UPGRADE_URL }}">See plans</a>. Team seats are included in the Business plan.</p>
 </section>
+{% endif %}
 {% endblock %}

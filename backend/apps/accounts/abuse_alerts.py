@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.ops import notify as ops_notify
 
-from . import abuse_launch
+from . import abuse_launch, abuse_senders
 from .models import AbuseAlert, AccountPlan, RateLimitBucket
 
 logger = logging.getLogger(__name__)
@@ -157,6 +157,7 @@ def send_due_abuse_alerts(now=None):
                 sent += 1
             except Exception:
                 logger.exception("abuse_alert_failed kind=%s", kind)
+        sent += abuse_senders.send_alerts(now)
     except Exception:
         logger.exception("abuse_alerts_failed")
     return sent

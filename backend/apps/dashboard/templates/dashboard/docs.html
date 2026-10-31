@@ -5,7 +5,7 @@
 {% block title %}Quickstart &amp; API docs · mailsocket{% endblock %}
 {% block eyebrow %}Quickstart{% endblock %}
 {% block h1 %}Wait for the OTP. One API call.{% endblock %}
-{% block lead %}<p class="landing-lead docs-lead">Point your signup form at a mailsocket inbox, then block on the wait endpoint until the OTP or magic link arrives. No Gmail, no IMAP.</p>{% endblock %}
+{% block lead %}<p class="landing-lead docs-lead">Point your app's signup form at a mailsocket inbox, then block on the wait endpoint until the OTP or magic link arrives. No Gmail, no IMAP.</p><p>For testing apps you own or are authorized to test. Not for creating accounts on services you don't control.</p>{% endblock %}
 
 {% block content %}
       <section class="docs-section docs-fastpath" id="sixty-seconds">
@@ -47,7 +47,7 @@ SINCE=$(<span class="code-command">curl</span> -s <span class="code-string">"{{ 
           <li>The key is shown once and is on the Free plan: {{ free_inboxes }} inbox{{ free_inboxes|pluralize:"es" }}, {{ free_retention_days }}-day message retention, {{ free_wait_cap }} concurrent waits.</li>
           <li>Registration is limited to {{ agent_register_per_ip }} keys per hour per IP address.</li>
           <li><code>POST /api/v1/inboxes/&lt;id&gt;/test-code</code> puts a sample OTP email straight into your own inbox. It does not go through the mail server, so it works even where you cannot send email. Limit: {{ test_code_per_inbox }} per inbox and {{ test_code_per_account }} per account per hour.</li>
-          <li>The account has no dashboard login. <a href="{% signup_href %}">Start free</a> with an account for a key you manage in the dashboard, with more inboxes on paid plans.</li>
+          <li>The account has no dashboard login. <a href="{% signup_href %}">Start free</a> with an account for a key you manage in the dashboard{% if paid_plans_on_sale %}, with more inboxes on paid plans{% endif %}.</li>
         </ul>
       </section>
 
@@ -186,7 +186,7 @@ SINCE=$(<span class="code-command">curl</span> -s <span class="code-string">"{{ 
   -d <span class="code-string">'{"read": true}'</span>
 <span class="code-command"># → 200 {"data": {"id": "msg_xxx", "read": true, ...}}</span></code></pre>
         </div>
-        <p>Paid plans can also mark or delete up to 100 messages in one call with <code>POST /api/v1/messages/batch</code>. See the <a href="{% url 'dashboard:api-reference' %}#endpoints">API reference</a>.</p>
+        {% if paid_plans_on_sale %}<p>Paid plans can also mark or delete up to 100 messages in one call with <code>POST /api/v1/messages/batch</code>. See the <a href="{% url 'dashboard:api-reference' %}#endpoints">API reference</a>.</p>{% endif %}
       </section>
 
       <section class="docs-section" id="code-samples">
@@ -390,7 +390,7 @@ otp = client.wait_for_otp(inbox[<span class="code-string">"id"</span>], since=st
       <section class="docs-section" id="inbox-domain">
         <h2>Why addresses use inboxpipe.net</h2>
         <p>Inbox addresses live on <code>{{ mail_domain }}</code>, not on mailsocket.app. Keeping inbound test mail on its own domain isolates its reputation from the domain we use for our website, account email and support, so a problem with one never takes down the other.</p>
-        <p>Some signup forms block domains they do not recognise, including new ones. If a form you test rejects the address, use a custom domain you own: on the Scale and Business plans you can receive mail at your own domain (catch-all is Business only). See <a href="{% url 'dashboard:pricing' %}">Pricing</a>.</p>
+        {% if paid_plans_on_sale %}<p>Some signup forms block domains they do not recognise, including new ones. If a form you test rejects the address, use a custom domain you own: on the Scale and Business plans you can receive mail at your own domain (catch-all is Business only). See <a href="{% url 'dashboard:pricing' %}">Pricing</a>.</p>{% else %}<p>Some signup forms block domains they do not recognise, including new ones. If a form you test rejects the address, use an address the form accepts; custom domains are unavailable while paid plans are paused.</p>{% endif %}
       </section>
 
       <section class="docs-section" id="public-inboxes">

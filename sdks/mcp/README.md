@@ -2,8 +2,11 @@
 
 An [MCP](https://modelcontextprotocol.io) server that exposes
 [mailsocket](https://mailsocket.app) to AI coding agents as native tools, so an
-agent can create a throwaway inbox and **block on the OTP or magic link**
-without writing any polling code. It wraps the
+agent can create a per-test inbox and **block on the OTP or magic link**
+without writing any polling code.
+For testing apps you own or are authorized to test. Not for creating accounts on services you don't control.
+
+It wraps the
 [Python SDK](https://github.com/mailsocket/mailsocket-sdk/tree/main/python) —
 no second HTTP client, no re-implemented polling.
 

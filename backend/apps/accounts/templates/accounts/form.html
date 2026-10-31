@@ -34,6 +34,7 @@
       </p>
       {% endfor %}
       <button type="submit" class="button auth-submit">{{ submit_label|default:"Continue" }}</button>
+      {% if title == "Create your account" %}<p>By creating an account you agree to the <a href="{% url 'dashboard:legal-aup' %}">Acceptable Use Policy</a>: test only apps you own or are authorized to test.</p>{% endif %}
     </form>
     <div class="auth-links">
       {% if title == "Sign in" %}

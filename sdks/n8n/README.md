@@ -1,6 +1,7 @@
 # n8n-nodes-mailsocket
 
-n8n community node for [mailsocket](https://mailsocket.app) — throwaway inboxes for AI agents and E2E tests. Create an inbox, hand its address to any signup form, then block a workflow until the OTP or magic link arrives. No polling code, no IMAP.
+n8n community node for [mailsocket](https://mailsocket.app) — test inboxes for AI agents testing your app and E2E tests. Create an inbox, use its address in your app's signup form, then block a workflow until the OTP or magic link arrives. No polling code, no IMAP.
+For testing apps you own or are authorized to test. Not for creating accounts on services you don't control.
 
 This is an unofficial-looking name but is published and maintained by the mailsocket team.
 

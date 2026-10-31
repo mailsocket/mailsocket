@@ -9,14 +9,26 @@ from apps.accounts.tenancy import tenant
 def feature_flags(request):
     """Settings-page nav gating (design §4 / engdev-settings.md §4): today no
     feature flag reaches base.html at all, so the sidebar cannot conditionally
-    show Billing/Team links. Pure settings reads, no DB touch — safe on
-    anon/error renders (mirrors multi_account's docstring guarantee below,
-    but even cheaper: this never queries anything).
+    show Billing/Team links. Settings reads, plus one AccountPlan lookup for a
+    signed-in user while PAID_PLANS_ON_SALE is false (decides the paused
+    upgrade note); anonymous/error renders never query.
     """
     from apps.billing.kill_switch import PAUSED_MESSAGE, billing_changes_enabled
 
     paused = not billing_changes_enabled()
+    paid_upgrades_paused = False
+    if not getattr(settings, "PAID_PLANS_ON_SALE", True) and request.path.startswith("/app/"):
+        user = getattr(request, "user", None)
+        if getattr(user, "is_authenticated", False):
+            from apps.accounts.models import AccountPlan
+
+            paid_upgrades_paused = not AccountPlan.objects.filter(
+                user=tenant(request), plan__in=("paid", "scale", "business")
+            ).exists()
     return {
+        "PAID_UPGRADES_PAUSED": paid_upgrades_paused,
+        "PAID_UPGRADES_PAUSED_MESSAGE": "Paid plans are paused. Your Free plan remains available.",
+        "PAID_PLANS_ON_SALE": settings.PAID_PLANS_ON_SALE,
         "ENABLE_BILLING": settings.ENABLE_BILLING,
         "ENABLE_TEAMS": settings.ENABLE_TEAMS,
         "ENABLE_BYOD": settings.ENABLE_BYOD,

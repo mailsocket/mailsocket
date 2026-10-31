@@ -1,7 +1,8 @@
 # mailsocket — Python SDK
 
 The official Python client for the [mailsocket](https://mailsocket.app) v1 REST API.
-Ephemeral email inboxes, message retrieval, and — the whole point — **wait for the OTP in one line**.
+Per-test email inboxes, message retrieval, and — the whole point — **wait for the OTP in one line**.
+For testing apps you own or are authorized to test. Not for creating accounts on services you don't control.
 
 ```python
 import time
@@ -12,7 +13,7 @@ client = Client("ms_live_...")            # your API key from the dashboard
 inbox = client.create_inbox(label="signup")  # -> {"id": "inbox_...", "address": "..."}
 
 started = time.time()                         # take the cutoff BEFORE the trigger
-# hand inbox["address"] to whatever form sends the code, then:
+# use inbox["address"] in your app's signup form, then:
 result = client.wait_for_otp(inbox["id"], since=started)  # blocks up to 60s
 print(result.otp)         # "123456"
 print(result.confidence)  # 0.95

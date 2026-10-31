@@ -1,7 +1,7 @@
 """mailsocket MCP server.
 
 Wraps the official :mod:`mailsocket` Python SDK as MCP tools so an
-AI coding agent can create a throwaway inbox and *block* on the OTP / magic
+AI coding agent can create a per-test inbox and *block* on the OTP / magic
 link without writing any polling code.
 
 Two transports share these tools:
@@ -94,8 +94,8 @@ server = MCPServer(
     name="mailsocket",
     title="mailsocket MCP server",
     description=(
-        "Ephemeral email inboxes for AI agents: create an inbox, hand the "
-        "address to any signup form, then block on the OTP or magic link."
+        "Test inboxes for AI agents testing your app: create an inbox, use its "
+        "address in your app's signup form, then block on the OTP or magic link."
     ),
     version=__version__,
 )
@@ -444,10 +444,10 @@ def _ctx(result, include: tuple[str, ...]) -> dict:
 )
 @_guarded()
 def create_inbox(label: str | None = None) -> dict:
-    """Create a new throwaway inbox and return its id and email address.
+    """Create a new test inbox and return its id and email address.
 
-    Use this first, before any signup flow you want to automate. Hand the
-    returned ``address`` to whatever form sends the verification email, then
+    Use this first, before testing your app's signup flow. Give the
+    returned ``address`` to your app's verification form, then
     call ``wait_for_otp`` (or ``wait_for_link``) with the returned ``id`` to
     block until the code/link arrives — no polling loop needed.
 

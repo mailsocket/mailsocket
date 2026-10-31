@@ -58,6 +58,14 @@
 </section>
 
 <section class="card">
+  <div class="section-head"><h2>Accounts with many verification senders (24 h)</h2></div>
+  {% if many_senders %}<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table class="data-table">
+    <thead><tr><th>Account</th><th>Plan</th><th>Distinct</th><th>Watched</th><th>Top domains</th></tr></thead>
+    <tbody>{% for row in many_senders %}<tr><td><a href="/admin/accounts/account/{{ row.account_id }}/">{{ row.account_id }}</a></td><td>{{ row.plan }}</td><td>{{ row.distinct_senders }}</td><td>{{ row.watched_domains }}</td><td>{{ row.top_domains|join:", " }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<p class="empty-state">No accounts over the warning threshold.</p>{% endif %}
+</section>
+
+<section class="card">
   <div class="section-head"><h2>Wait capacity</h2></div>
   <div class="stats">
     <section class="card"><span>Global in flight</span><strong>{{ wait_global_now }} <small>/ {{ wait_global_limit }}</small></strong><small>WAIT_CAPACITY_LIMIT</small></section>

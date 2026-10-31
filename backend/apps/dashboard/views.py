@@ -39,6 +39,7 @@ from apps.webhooks.models import Webhook, WebhookDelivery
 from apps.webhooks.security import SSRFValidationError
 from apps.webhooks.services import create_webhook, delete_webhook, rotate_signing_secret, update_webhook
 
+from .compare import llms_pause_note, public_landing_price, public_tiers
 from .context_processors import site_origins
 from .decorators import post_only
 from .forms import ApiKeyCreateForm, InboxCreateForm, InboxRenameForm, WebhookForm
@@ -909,8 +910,7 @@ def root(request):
     tiers = _pricing_context()["tiers"]
     return render(request, "dashboard/landing.html", {
         "mail_domain": settings.MAIL_DOMAIN,
-        "paid_from_price": _lowest_paid_price(tiers),
-        # Free-plan limits strip: the very tier dict /pricing/ renders.
+        "paid_from_price": public_landing_price(_lowest_paid_price(tiers)),
         "free_tier": next((t for t in tiers if t["key"] == "free"), None),
     })
 
@@ -954,6 +954,7 @@ def docs(request):
     """
     free = settings.BILLING_PLAN_LIMITS["free"]
     return render(request, "dashboard/docs.html", {
+        "paid_plans_on_sale": getattr(settings, "PAID_PLANS_ON_SALE", True),
         "public_base_url": _snippet_api_base(),
         "mail_domain": settings.MAIL_DOMAIN,
         "wait_caps": _wait_caps_display(),
@@ -974,7 +975,7 @@ def try_it(request):
     Anonymous read-only page render. It ships NO api key, no inline script (the
     interactive JS lives in a static file so the strict CSP holds), and the two
     JSON endpoints it calls are IP-rate-limited and scoped to a dedicated demo
-    user's throwaway inboxes only.
+    user's test inboxes only.
     """
     return render(request, "dashboard/try.html", {
         "public_base_url": _snippet_api_base(),
@@ -1010,6 +1011,7 @@ def api_reference(request):
     """Public, browsable REST API reference for v1, mirroring docs/openapi.yaml."""
     tiers = [t for t in _pricing_context()["tiers"] if t["key"] != "enterprise"]
     return render(request, "dashboard/api_reference.html", {
+        "paid_plans_on_sale": getattr(settings, "PAID_PLANS_ON_SALE", True),
         "title": "API reference",
         "endpoints": _endpoints_for_display(),
         "rate_per_minute": API_KEY_RATE_LIMIT_PER_MINUTE,
@@ -1049,29 +1051,23 @@ def llms_txt(request):
     )
     api_base = api_base.rstrip("/")
     site = settings.PUBLIC_BASE_URL.rstrip("/")
-    # canon: public docs live on the apex; don't hand agents dash URLs that 301.
     apex_origin = site_origins(request)["APEX_ORIGIN"]
     if apex_origin:
         site = apex_origin
     mail_domain = settings.MAIL_DOMAIN
-
     lines = []
     add = lines.append
-    add("# mailsocket")
-    add("")
-    add("> Programmable email inboxes for developers and AI agents. Create an")
-    add("> inbox, send email to it, then read the parsed message, or block on one")
-    add("> call until the OTP or magic link arrives. Email in, JSON out.")
-    add("")
-    add("## What it is")
-    add("")
+    lines.extend(("# mailsocket", "",
+                  "> Programmable email inboxes for developers and AI agents. Create an",
+                  "> inbox, send email to it, then read the parsed message, or block on one",
+                  "> call until the OTP or magic link arrives. Email in, JSON out.", ""))
+    lines.extend(("## What it is", ""))
     add("- Create inbox addresses on " + mail_domain + " via the REST API.")
     add("- Every email is parsed to JSON (sender, subject, text, html, otp, links).")
     add("- The core call: `messages/wait` blocks until a matching OTP or link is parsed.")
-    add("- Built for signup automation, end-to-end tests (pytest, Cypress, Puppeteer, CI) and AI agents.")
+    add("- For testing your app's signup/login emails: E2E (pytest, Cypress, Puppeteer, CI), QA, AI agents.")
     add("")
-    add("## Base URL and authentication")
-    add("")
+    lines.extend(("## Base URL and authentication", ""))
     add("- API base: `" + api_base + "/api/v1`")
     add("- Auth: send your API key as a Bearer token on EVERY request:")
     add("  `Authorization: Bearer ms_live_...`")
@@ -1083,8 +1079,7 @@ def llms_txt(request):
     add("- No-signup path: POST /api/v1/agents/register needs no key and returns one")
     add("  (step 0 below). Email verification is not required for this path.")
     add("")
-    add("## Limits")
-    add("")
+    lines.extend(("## Limits", ""))
     add("- Requests: " + str(API_KEY_RATE_LIMIT_PER_MINUTE) + " per minute and " + str(API_KEY_RATE_LIMIT_PER_HOUR)
         + " per hour per API key, on every plan. Authenticated responses carry")
     add("  X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset.")
@@ -1092,9 +1087,7 @@ def llms_txt(request):
     add("- Wait timeout: at most 25s per call (default 20). On 204 call again, and pass the response's")
     add("  Mailsocket-Wait-Since header back as since to never miss a message (the SDKs do this).")
     add("")
-    add("## Quick start (curl): register, then wait")
-    add("")
-    add("```bash")
+    lines.extend(("## Quick start (curl): register, then wait", "", "```bash"))
     add("# Needs curl and jq. Paste the whole block into bash; it runs as is.")
     add("command -v jq >/dev/null || echo \"This block needs jq: https://jqlang.org/download/\" >&2")
     add("# 0. No signup: create an API key and a ready-to-use inbox in one call, and keep")
@@ -1168,28 +1161,33 @@ def llms_txt(request):
         add("")
     add("## Plans")
     add("")
-    # QA #7: same names/numbers as /pricing/ (single source: _pricing_context).
-    for tier in _pricing_context()["tiers"]:
-        # Billing-gated tiers say "coming soon"; Enterprise says "contact sales".
+    tiers = _pricing_context()["tiers"]
+    visible_tiers = public_tiers(tiers)
+    for tier in visible_tiers:
         status = "available now" if tier["available"] else tier["badge"].lower()
+        tier_name = tier["name"]
+        tier_price = tier["price"]
+        tier_heading = "- " + tier_name + " (" + tier_price + ", " + status + "): "
         if tier["key"] == "enterprise":
             add(
-                "- " + tier["name"] + " (" + tier["price"] + ", " + status + "): "
+                tier_heading
                 + "Business limits and features with custom contract terms, set up by our team."
             )
             continue
-        add(
-            "- " + tier["name"] + " (" + tier["price"] + ", " + status + "): "
-            + tier["inboxes_display"] + ", " + tier["messages_display"] + " messages, "
-            + tier["retention_display"] + " retention, webhooks: " + tier["webhooks_display"]
-            + ", custom domains: " + tier["domains_display"] + "."
-        )
+        inboxes = tier["inboxes_display"]
+        messages = tier["messages_display"]
+        retention = tier["retention_display"]
+        webhooks = tier["webhooks_display"]
+        domains = tier["domains_display"]
+        tier_limits = inboxes + ", " + messages + " messages, " + retention + " retention"
+        tier_features = ", webhooks: " + webhooks + ", custom domains: " + domains + "."
+        add(tier_heading + tier_limits + tier_features)
+    lines.extend(llms_pause_note())
     add("- Plan gating: 402 plan_upgrade_required means a Free account called a paid-only")
     add("  operation (POST /messages/batch); 403 <feature>_entitlement_required means the")
     add("  plan lacks a named capability (webhooks, custom domains, catch-all).")
     add("")
-    add("## SDKs and tools")
-    add("")
+    lines.extend(("## SDKs and tools", ""))
     add("- Python: `pip install mailsocket`, then `started = time.time()` before the trigger and")
     add("  `Client(api_key).wait_for_otp(inbox_id, since=started)` (since = a time before the trigger)")
     add("  No email handy: `client.send_test_code(inbox_id)` (since mailsocket 0.3.0) as the trigger")
@@ -1207,18 +1205,18 @@ def llms_txt(request):
     add("  Use the local stdio server above in those clients until then.")
     add("- Full SDK and MCP docs: " + site + "/docs/#sdks")
     add("")
-    add("## More documentation")
-    add("")
+    lines.extend(("## More documentation", ""))
     add("- Machine-readable OpenAPI 3.1 spec: " + api_base + "/docs/openapi.yaml")
     add("- API reference: " + site + "/docs/api/")
     add("- Error codes: " + site + "/docs/errors/")
     add("- Versioning and deprecation policy: " + site + "/docs/versioning")
     add("- Guides (pytest, Cypress, Puppeteer, GitHub Actions): " + site + "/docs/guides/")
     add("- Try it with no signup: " + site + "/docs/try/")
-    add("- Comparisons (Mailpit, Mailosaur, AgentMail): " + site + "/docs/compare/")
-    add("- Security: " + site + "/security")
+    lines.extend((
+        "- Comparisons (Mailpit, Mailosaur, AgentMail): " + site + "/docs/compare/",
+        "- Security: " + site + "/security",
+    ))
     add("")
-
     body = "\n".join(lines)
     return HttpResponse(body, content_type="text/plain; charset=utf-8")
 
@@ -1386,9 +1384,9 @@ def _pricing_context():
 @require_GET
 def pricing(request):
     """Public pricing page: 5-tier ladder, Free/Pro always live; Scale and Business live only when settings.ENABLE_BILLING is on; Enterprise is always contact-sales."""
+    plans = {"tiers": public_tiers(_pricing_context()["tiers"])}
     return render(request, "dashboard/pricing.html", {
-        "title": "Pricing",
-        "plans": _pricing_context(),
+        "title": "Pricing", "plans": plans, "paid_plans_on_sale": settings.PAID_PLANS_ON_SALE,
     })
 
 
@@ -1476,7 +1474,7 @@ def versioning(request):
 def security(request):
     """Public security page (#3): data handling, retention, subprocessors,
     disclosure. Retention numbers come from settings, never literals."""
-    tiers = [t for t in _pricing_context()["tiers"] if t["key"] != "enterprise"]
+    tiers = public_tiers([t for t in _pricing_context()["tiers"] if t["key"] != "enterprise"])
     return render(request, "dashboard/security.html", {
         "title": "Security",
         "retention_tiers": tiers,
@@ -1577,8 +1575,9 @@ def faq(request):
     source for customer-facing tier names/numbers), so the FAQ can never say
     "Paid" while pricing says "Pro", or omit tiers the table shows.
     """
-    tiers = [t for t in _pricing_context()["tiers"] if t["key"] != "enterprise"]
+    tiers = public_tiers([t for t in _pricing_context()["tiers"] if t["key"] != "enterprise"])
     return render(request, "dashboard/faq.html", {
+        "paid_plans_on_sale": getattr(settings, "PAID_PLANS_ON_SALE", True),
         "title": "FAQ",
         "free_retention_days": settings.RETENTION_DAYS["free"],
         "paid_retention_days": settings.RETENTION_DAYS["paid"],
@@ -1607,6 +1606,7 @@ def changelog(request):
     business = settings.BILLING_PLAN_LIMITS["business"]
     business_tier = next(t for t in _pricing_context()["tiers"] if t["key"] == "business")
     return render(request, "dashboard/changelog.html", {
+        "paid_plans_on_sale": getattr(settings, "PAID_PLANS_ON_SALE", True),
         "title": "Changelog",
         "business_plan": {
             "price": business_tier["price"],
@@ -2763,6 +2763,8 @@ def _staff_only_404(view):
 @_staff_only_404
 @require_GET
 def fleet(request):
+    from apps.accounts.abuse_senders import report as sender_report
+
     now = timezone.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_ago = now - _timedelta(days=7)
@@ -2809,6 +2811,7 @@ def fleet(request):
         ),
         "plan_rows": plan_rows,
         "top_users": top_users,
+        "many_senders": [row for row in sender_report(now) if row["tripped"]],
         **_wait_capacity_panel(now),
         **_open_feedback_panel(),
     }

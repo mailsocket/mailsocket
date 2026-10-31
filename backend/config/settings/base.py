@@ -489,6 +489,32 @@ FUNNEL_EXCLUDED_EMAILS = [
 ]
 FUNNEL_EXCLUDED_EMAIL_GLOBS = [f"e2e-*@{MAIL_DOMAIN}"]
 
+# Alert-only verification sender diversity, scanned by status_probe every 5m.
+def _positive_abuse_int(name: str, raw: str) -> int:
+    if not raw.isascii() or not raw.isdecimal() or int(raw) < 1:
+        raise ImproperlyConfigured(f"{name} must be a positive decimal integer")
+    return int(raw)
+
+
+ABUSE_DISTINCT_SENDERS_WARN = _positive_abuse_int(
+    "ABUSE_DISTINCT_SENDERS_WARN", os.environ.get("ABUSE_DISTINCT_SENDERS_WARN", "8")
+)
+ABUSE_WATCHED_SENDERS_WARN = _positive_abuse_int(
+    "ABUSE_WATCHED_SENDERS_WARN", os.environ.get("ABUSE_WATCHED_SENDERS_WARN", "3")
+)
+ABUSE_SENDER_ALLOWLIST = [
+    v.strip().lower() for v in os.environ.get("ABUSE_SENDER_ALLOWLIST", "").split(",") if v.strip()
+]
+ABUSE_WATCHED_SENDER_DOMAINS = [
+    v.strip().lower() for v in os.environ.get(
+        "ABUSE_WATCHED_SENDER_DOMAINS",
+        "google.com,accounts.google.com,facebookmail.com,instagram.com,x.com,twitter.com,"
+        "tiktok.com,discord.com,telegram.org,microsoft.com,live.com,apple.com,amazon.com,"
+        "netflix.com,spotify.com,paypal.com,openai.com,binance.com,coinbase.com,"
+        "steampowered.com,epicgames.com,uber.com,airbnb.com,shopee.vn,lazada.vn,tiki.vn,zalo.me",
+    ).split(",") if v.strip()
+]
+
 
 # switch. Default False: apps.outbound models exist and migrations apply,
 # and the additive Domain.dkim_* fields exist, but the whole API surface
@@ -663,6 +689,7 @@ def strict_bool_env(name: str, default: bool) -> tuple[bool | None, str | None]:
 # (apps.billing.kill_switch); the LS webhook and the customer portal keep
 # working. Default true. An invalid value refuses to start (mailsocket.E008).
 BILLING_CHANGES_ENABLED, BILLING_CHANGES_ENABLED_RAW = strict_bool_env("BILLING_CHANGES_ENABLED", True)
+PAID_PLANS_ON_SALE, PAID_PLANS_ON_SALE_RAW = strict_bool_env("PAID_PLANS_ON_SALE", False)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["apps.api.authentication.BearerAuthentication"],

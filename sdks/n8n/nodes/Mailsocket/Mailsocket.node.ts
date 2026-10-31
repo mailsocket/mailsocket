@@ -26,7 +26,7 @@ export class Mailsocket implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
-		description: 'Create throwaway inboxes and block on the OTP or magic link',
+		description: 'Create test inboxes and block on the OTP or magic link',
 		defaults: {
 			name: 'mailsocket',
 		},

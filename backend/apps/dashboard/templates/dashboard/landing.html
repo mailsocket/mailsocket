@@ -27,11 +27,12 @@
         <div class="landing-hero-copy">
           <h1>Get the OTP, not the email</h1>
           <p class="landing-lead">Give your signup test, script or AI agent a real inbox address. One API call waits until the code arrives, then hands back the code or the magic link as JSON, so you can drop the shared Gmail account and the <span class="landing-nowrap">IMAP-plus-regex</span> script that reads it.</p>
+          <p>For testing apps you own or are authorized to test. Not for creating accounts on services you don't control.</p>
           <div class="landing-actions">
             <a class="landing-button landing-button-primary" href="{% signup_href %}">Start free</a>
             <a class="landing-button landing-button-secondary" href="{% try_href %}">Try it without signup</a>
           </div>
-          {% if paid_from_price %}<p class="landing-pricing-note">Free plan, paid plans from {{ paid_from_price }}/month. <a href="{% url 'dashboard:pricing' %}">See pricing</a></p>{% endif %}
+          {% if paid_from_price %}<p class="landing-pricing-note">Free plan, paid plans from {{ paid_from_price }}/month. <a href="{% url 'dashboard:pricing' %}">See pricing</a></p>{% else %}<p class="landing-pricing-note">Free plan available. Paid plans are paused.</p>{% endif %}
         </div>
         {# Product visual: two real wait() 200 bodies (MessageSerializer output captured by running the SDK against the API, each email stored and parsed by the real ingest pipeline): an OTP email and a magic-link email, both abridged to the same 9 of 22 fields. The tabs are pure-CSS radio :checked (no JS, CSP-safe). #}
         <figure class="landing-response">
@@ -195,9 +196,9 @@ print(result.confidence)  <span class="code-comment"># 0.95</span></code></pre><
           <div class="landing-scope-col">
             <h3>What it does</h3>
             <ul>
-              <li>Receives email at addresses on <code>{{ mail_domain }}</code>, or on your own domain on the Scale and Business plans.</li>
+              <li>Receives email at addresses on <code>{{ mail_domain }}</code>{% if paid_from_price %}, or on your own domain on the Scale and Business plans{% endif %}.</li>
               <li>Extracts the one-time code and the magic link from each message.</li>
-              <li>Returns them as JSON through the wait endpoint, the REST API, a Server-Sent Events stream, or signed webhooks (paid plans).</li>
+              <li>Returns them as JSON through the wait endpoint, the REST API{% if paid_from_price %}, a Server-Sent Events stream, or signed webhooks (paid plans){% else %}, or a Server-Sent Events stream{% endif %}.</li>
               <li>Gives you the full text and HTML body too, when you need more than the code.</li>
             </ul>
           </div>

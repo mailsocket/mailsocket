@@ -98,6 +98,7 @@ def _mailsocket_facts():
         return None
 
     return {
+        "on_sale": getattr(settings, "PAID_PLANS_ON_SALE", True),
         "free": tiers["free"],
         "pro": tiers["paid"],
         "scale": tiers["scale"],
@@ -107,6 +108,23 @@ def _mailsocket_facts():
         "wait_max": WAIT_TIMEOUT_MAX,
         "mail_domain": settings.MAIL_DOMAIN,
     }
+
+
+def public_tiers(tiers):
+    """Only Free is advertised while paid plans are paused."""
+    return tiers if getattr(settings, "PAID_PLANS_ON_SALE", True) else tiers[:1]
+
+
+def public_landing_price(price):
+    """Suppress the paid teaser while sales are paused."""
+    return price if getattr(settings, "PAID_PLANS_ON_SALE", True) else None
+
+
+def llms_pause_note():
+    """Advertise the paused offer without changing existing plan entitlements."""
+    if settings.PAID_PLANS_ON_SALE:
+        return []
+    return ["- Paid plans are paused. New accounts start on Free; paid-only features are unavailable."]
 
 
 @require_GET

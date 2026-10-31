@@ -11,7 +11,7 @@ export const inboxOperations: INodeProperties[] = [
 			{
 				name: 'Create',
 				value: 'create',
-				description: 'Create a new throwaway inbox',
+				description: 'Create a new test inbox',
 				action: 'Create an inbox',
 			},
 			{

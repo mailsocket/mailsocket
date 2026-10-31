@@ -3,6 +3,12 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 
+@pytest.fixture(autouse=True)
+def _legacy_paid_plan_copy(settings):
+    """Existing assertions describe the on-sale offer; new tests exercise the paused default."""
+    settings.PAID_PLANS_ON_SALE = True
+
+
 @pytest.fixture
 def api_client():
     return APIClient()

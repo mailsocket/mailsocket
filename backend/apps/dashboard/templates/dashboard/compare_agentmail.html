@@ -14,12 +14,12 @@
       <thead><tr><th>&nbsp;</th><th>AgentMail</th><th>mailsocket</th></tr></thead>
       <tbody>
         <tr><td>Free plan</td><td>✅ 3 inboxes, 3,000 emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>✅ {{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}, {{ ms.free.retention_display }} retention</td></tr>
-        <tr><td>Entry price</td><td>Developer $20/month: 10 inboxes, 10,000 emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>
-        <tr><td>Next plan</td><td>Startup $200/month: 150 inboxes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.scale.name }} {{ ms.scale.price }}: {{ ms.scale.inboxes_display }}, {{ ms.scale.messages_display }}</td></tr>
+        {% if ms.on_sale %}<tr><td>Entry price</td><td>Developer $20/month: 10 inboxes, 10,000 emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>{% endif %}
+        {% if ms.on_sale %}<tr><td>Next plan</td><td>Startup $200/month: 150 inboxes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.scale.name }} {{ ms.scale.price }}: {{ ms.scale.inboxes_display }}, {{ ms.scale.messages_display }}</td></tr>{% endif %}
         <tr><td>Discount for paying yearly</td><td>✅ 20% (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Monthly only</td></tr>
-        <tr><td>Custom domains</td><td>✅ From the $20 Developer plan, 10 domains (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.domains_plan %}✅ From the {{ ms.domains_plan.name }} plan ({{ ms.domains_plan.price }}){% else %}❌ No{% endif %}</td></tr>
+        <tr><td>Custom domains</td><td>✅ From the $20 Developer plan, 10 domains (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if not ms.on_sale %}Unavailable while paid plans are paused{% elif ms.domains_plan %}✅ From the {{ ms.domains_plan.name }} plan ({{ ms.domains_plan.price }}){% else %}❌ No{% endif %}</td></tr>
         <tr><td>WebSocket events</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No; a Server-Sent Events stream instead, every plan</td></tr>
-        <tr><td>Webhooks</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>Webhooks</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if not ms.on_sale %}Unavailable while paid plans are paused{% elif ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
         <tr><td>MCP server</td><td>✅ Hosted, with OAuth sign-in for Claude and ChatGPT (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>✅ Hosted and local, API key only</td></tr>
         <tr><td>Send, reply and forward email</td><td>✅ Yes (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>❌ No, receive only</td></tr>
         <tr><td>OTP and magic link extracted to their own fields</td><td>Not listed in its MCP tools (<a href="{{ src.mcp }}" rel="noopener">source</a>)</td><td>✅ Yes, every plan</td></tr>
@@ -47,7 +47,7 @@
     <li>The job is getting past a verification step: you want the OTP or magic link as a field, not an email to parse.</li>
     <li>You want one call that blocks until the code arrives, with no WebSocket client or webhook receiver to run.</li>
     <li>You write end-to-end tests (pytest, Cypress, Playwright, CI) as well as agents, and want one inbox per test.</li>
-    <li>You want a lower entry price: {{ ms.pro.name }} is {{ ms.pro.price }}.</li>
+    {% if ms.on_sale %}<li>You want a lower entry price: {{ ms.pro.name }} is {{ ms.pro.price }}.</li>{% else %}<li>You want to start on a free inbox plan; paid plans are paused.</li>{% endif %}
   </ul>
 </section>
 

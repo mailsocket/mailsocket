@@ -1,7 +1,8 @@
 # mailsocket — TypeScript SDK
 
 The official TypeScript client for the [mailsocket](https://mailsocket.app) v1 REST API.
-Ephemeral email inboxes, message retrieval, and — the whole point — **wait for the OTP in one line**.
+Per-test email inboxes, message retrieval, and — the whole point — **wait for the OTP in one line**.
+For testing apps you own or are authorized to test. Not for creating accounts on services you don't control.
 
 ```ts
 import { MailsocketClient } from "mailsocket-sdk";
@@ -10,7 +11,7 @@ const client = new MailsocketClient("ms_live_..."); // your API key from the das
 const inbox = await client.createInbox("signup");   // { id: "inbox_...", address: "..." }
 
 const started = Date.now() / 1000;                  // unix seconds, taken BEFORE the trigger
-// hand inbox.address to whatever form sends the code, then:
+// use inbox.address in your app's signup form, then:
 const { otp, confidence } = await client.waitForOtp(inbox.id, { since: started }); // waits up to 60s
 console.log(otp);         // "123456"
 console.log(confidence);  // 0.95

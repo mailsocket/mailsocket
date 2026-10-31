@@ -1,7 +1,7 @@
 {% extends 'dashboard/base.html' %}
 {% block title %}Billing · mailsocket{% endblock %}
 {% block content %}
-<header class="page-head"><div><h1>Billing</h1><p>Your plan, payment status, and upgrades.</p></div></header>
+<header class="page-head"><div><h1>Billing</h1><p>{% if PAID_UPGRADES_PAUSED %}Your plan and payment status.{% else %}Your plan, payment status, and upgrades.{% endif %}</p></div></header>
 
 {% if checkout_banner %}<div class="flash" role="status">{{ checkout_banner }}</div>{% endif %}
 {% if pending_change %}<div class="flash" role="status">Plan change in progress — refresh in a minute. Your change to {{ pending_target_name }} is being applied.</div>{% endif %}
@@ -50,11 +50,17 @@
 </section>
 {% endif %}
 
-{% if not is_owner %}
+{% if PAID_UPGRADES_PAUSED %}
+<section class="card" id="paid-plans-paused" role="status">
+  <div class="section-head"><h2>Paid plans paused</h2></div>
+  <p class="usage-note">{{ PAID_UPGRADES_PAUSED_MESSAGE }}</p>
+</section>
+{% elif not is_owner %}
 <section class="card">
   <div class="section-head"><h2>Plans</h2></div>
   <p class="empty">Only the account owner can change the plan or manage billing.</p>
 </section>
+{% elif not PAID_PLANS_ON_SALE %}
 {% elif plan_status == 'active' %}
 {% if pending_change %}
 <section class="card">

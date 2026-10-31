@@ -1,9 +1,14 @@
 # mailsocket
 
-mailsocket is an inbox API for OTP and magic-link testing, signup automation,
-and AI agents. Email in, JSON out.
+mailsocket is an email-testing API: test inboxes for your app's signup, login
+and password-reset emails, in end-to-end tests, CI, QA and AI agents. Email in,
+JSON out.
 
-Features: disposable inboxes, extracted verification codes and magic links,
+For testing apps you own or are authorized to test. Not for creating accounts
+on services you don't control. See the Acceptable Use Policy at
+https://mailsocket.app/legal/aup/.
+
+Features: per-test inboxes, extracted verification codes and magic links,
 long-poll wait, webhooks, and API keys.
 
 Architecture: Django serves the API and dashboard. PostgreSQL stores inboxes

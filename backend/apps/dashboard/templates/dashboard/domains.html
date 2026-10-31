@@ -62,5 +62,5 @@ value: {{ mx_target }}</pre>
   {% endfor %}
   </tbody>
 </table>
-</div>{% else %}<p class="empty-state">No custom domains yet.{% if not can_add_domain %} <a href="{{ UPGRADE_URL }}">Upgrade to Scale or Business</a> to add one.{% endif %}</p>{% endif %}</section>
+</div>{% else %}<p class="empty-state">No custom domains yet.{% if not can_add_domain %} {% if PAID_UPGRADES_PAUSED %}{{ PAID_UPGRADES_PAUSED_MESSAGE }}{% else %}<a href="{{ UPGRADE_URL }}">Upgrade to Scale or Business</a> to add one.{% endif %}{% endif %}</p>{% endif %}</section>
 {% endblock %}

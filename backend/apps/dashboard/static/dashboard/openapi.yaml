@@ -1142,7 +1142,7 @@ paths:
         Every email goes through the EXACT same verification path as
         `POST /verify`; this is a charged, capped, deadline-bounded loop
         over that path, NOT a separate/lighter verification. Bulk is NOT a
-        rate-limit bypass: each row consumes the standard per-key/per-account
+        rate-limit circumvention: each row consumes the standard per-key/per-account
         `/verify` hourly budget (the SAME buckets single `/verify` draws
         from; singles and batches share one budget).
 

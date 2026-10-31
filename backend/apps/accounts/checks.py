@@ -196,3 +196,22 @@ def billing_kill_switch_errors(settings_obj=None):
 @register()
 def check_billing_kill_switch(app_configs=None, **kwargs):
     return billing_kill_switch_errors()
+
+
+def paid_plans_on_sale_errors(settings_obj=None):
+    s = settings_obj or django_settings
+    if isinstance(getattr(s, "PAID_PLANS_ON_SALE", False), bool):
+        return []
+    raw = getattr(s, "PAID_PLANS_ON_SALE_RAW", None)
+    return [
+        Error(
+            f"PAID_PLANS_ON_SALE={raw!r} is not a valid value.",
+            hint="Use exactly true, false, 1 or 0 (lowercase, no spaces); unset means false.",
+            id="mailsocket.E009",
+        )
+    ]
+
+
+@register()
+def check_paid_plans_on_sale(app_configs=None, **kwargs):
+    return paid_plans_on_sale_errors()

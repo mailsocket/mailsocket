@@ -2,7 +2,7 @@
 {% block title %}Team · mailsocket{% endblock %}
 {% block content %}
 <header class="page-head"><div><h1>Team</h1><p>Invite teammates to your Business plan seats.</p></div></header>
-{% if not plan_has_team_seats %}<section class="card upsell" id="team-upsell"><p>Team seats come with {{ team_plan_name }}. <a class="button secondary" href="{{ UPGRADE_URL }}">Upgrade</a></p></section>
+{% if not plan_has_team_seats %}<section class="card upsell" id="team-upsell"><p>{% if PAID_UPGRADES_PAUSED %}{{ PAID_UPGRADES_PAUSED_MESSAGE }}{% else %}Team seats come with {{ team_plan_name }}. <a class="button secondary" href="{{ UPGRADE_URL }}">Upgrade</a>{% endif %}</p></section>
 {% elif not can_invite %}<div class="card flash">No seats available on your current plan. Upgrade or free up a seat to invite another member.</div>{% endif %}
 <section class="card">
   <form class="inline-form create-form" method="post" action="{% url 'dashboard:team-invite-create' %}" hx-post="{% url 'dashboard:team-invite-create' %}" hx-target="#team-rows" hx-swap="innerHTML" data-error-target="#team-result" hx-disabled-elt="find button">

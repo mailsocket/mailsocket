@@ -36,9 +36,11 @@
 
   <article class="changelog-entry">
     <h2><time class="changelog-date" datetime="2026-09-30">30 September 2026</time> Business plan now available</h2>
+    {% if paid_plans_on_sale %}
     <p>You can now buy the Business plan yourself for {{ business_plan.price }} from <a href="{% url 'dashboard:pricing' %}">Pricing</a> or the Billing page in your dashboard. It includes {{ business_plan.inboxes }} inboxes, {{ business_plan.messages_per_month }} messages a month, {{ business_plan.retention_days }}-day retention and {{ business_plan.wait_concurrency }} concurrent waits, plus custom domains, catch-all addresses and team seats. Current limits are always on <a href="{% url 'dashboard:pricing' %}">Pricing</a>.</p>
     <p>If you already pay for Pro or Scale, upgrading changes your current subscription and does not start a second one. You are charged the prorated difference right away.</p>
     <p>Enterprise is now arranged through our sales team at <!--email_off--><a href="mailto:sales@mailsocket.app">sales@mailsocket.app</a><!--/email_off-->. Pricing is custom.</p>
+    {% else %}<p>Paid plans are currently paused. New accounts start on Free.</p>{% endif %}
   </article>
 
   <article class="changelog-entry">

@@ -69,6 +69,7 @@
 
 <section class="docs-section" id="plan-gating">
   <h2>Plan-gated features: 402 vs 403</h2>
+  {% if not paid_plans_on_sale %}<p>Paid plans are paused. New accounts use Free; paid-only features are unavailable.</p>{% endif %}
   <p>Two status codes mean "your plan does not include this". Match on <code>error.code</code>:</p>
   <ul class="docs-steps">
     <li><code>402 plan_upgrade_required</code>: a <strong>Free</strong> account called an operation that any paid plan unlocks. Today that is only <code>POST /messages/batch</code>.</li>
@@ -79,7 +80,7 @@
 
 <section class="docs-section" id="webhooks">
   <h2>Webhooks</h2>
-  <p>Webhooks push every new message in an inbox to your HTTPS endpoint (paid plans). Configure one per inbox in the dashboard under <strong>Webhooks</strong>: set the URL and copy the signing secret (<code>whsec_…</code>), which is shown once. You can rotate it at any time. Use <code>POST /api/v1/inboxes/{id}/webhook/test</code> to send a signed test delivery.</p>
+  {% if paid_plans_on_sale %}<p>Webhooks push every new message in an inbox to your HTTPS endpoint (paid plans). Configure one per inbox in the dashboard under <strong>Webhooks</strong>: set the URL and copy the signing secret (<code>whsec_…</code>), which is shown once. You can rotate it at any time. Use <code>POST /api/v1/inboxes/{id}/webhook/test</code> to send a signed test delivery.</p>{% else %}<p>Webhooks are unavailable to new Free accounts while paid plans are paused.</p>{% endif %}
   <h3>Delivery</h3>
   <ul class="docs-steps">
     <li>A <code>POST</code> with <code>Content-Type: application/json</code> to your URL, only to public HTTPS addresses (the resolved IP is pinned; private, loopback and link-local targets are refused).</li>

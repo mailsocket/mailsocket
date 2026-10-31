@@ -36,7 +36,7 @@
 
 <section class="docs-section" id="custom-domains">
   <h2>Can I receive mail on my own domain?</h2>
-  <p>Yes, on {% for tier in domain_tiers %}{{ tier.name }} ({{ tier.domains_display }}){% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}. Add the domain, publish the TXT and MX records we show you, and once it is verified you can create inboxes on it. Catch-all (any address on the domain goes to one inbox) is Business only. See <a href="{% url 'dashboard:pricing' %}">pricing</a>.</p>
+  {% if paid_plans_on_sale %}<p>Yes, on {% for tier in domain_tiers %}{{ tier.name }} ({{ tier.domains_display }}){% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}. Add the domain, publish the TXT and MX records we show you, and once it is verified you can create inboxes on it. Catch-all (any address on the domain goes to one inbox) is Business only. See <a href="{% url 'dashboard:pricing' %}">pricing</a>.</p>{% else %}<p>Not on the Free plan. Custom domains are unavailable while paid plans are paused.</p>{% endif %}
 </section>
 
 <section class="docs-section" id="report-a-problem">

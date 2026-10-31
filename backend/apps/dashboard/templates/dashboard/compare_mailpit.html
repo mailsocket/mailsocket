@@ -19,7 +19,7 @@
     <table class="docs-table">
       <thead><tr><th>&nbsp;</th><th>Mailpit</th><th>mailsocket</th></tr></thead>
       <tbody>
-        <tr><td>Price</td><td>✅ Free, open source (MIT) (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>Free plan ({{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}); paid plans from {{ ms.pro.price }}</td></tr>
+        <tr><td>Price</td><td>✅ Free, open source (MIT) (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>Free plan ({{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}){% if ms.on_sale %}; paid plans from {{ ms.pro.price }}{% else %}; paid plans paused{% endif %}</td></tr>
         <tr><td>Who runs it</td><td>You do: a single binary or a Docker image (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Hosted, nothing to install or run</td></tr>
         <tr><td>Works offline, on your laptop</td><td>✅ Yes (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No, it needs internet access</td></tr>
         <tr><td>Catches mail your app sends over SMTP</td><td>✅ Yes, it is an SMTP server (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No, your app sends mail normally and it arrives like any other email</td></tr>
@@ -28,7 +28,7 @@
         <tr><td>One call that waits for the code</td><td>Not listed in its features (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Yes, up to {{ ms.wait_max }}s per call, every plan</td></tr>
         <tr><td>HTML, link and spam checks</td><td>✅ Yes (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
         <tr><td>Simulated SMTP errors (chaos testing)</td><td>✅ Yes (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
-        <tr><td>Webhook on new mail</td><td>✅ Optional (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>{% if ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>Webhook on new mail</td><td>✅ Optional (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>{% if not ms.on_sale %}Paid plans paused{% elif ms.webhooks_plan %}✅ From the {{ ms.webhooks_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
         <tr><td>MCP server for AI agents</td><td>Not listed in its features (<a href="{{ src.repo }}" rel="noopener">source</a>)</td><td>✅ Yes, every plan</td></tr>
       </tbody>
     </table>

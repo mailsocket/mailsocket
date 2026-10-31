@@ -14,12 +14,12 @@
       <thead><tr><th>&nbsp;</th><th>Mailosaur</th><th>mailsocket</th></tr></thead>
       <tbody>
         <tr><td>Free plan</td><td>❌ No free plan; 14-day free trial (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>✅ {{ ms.free.inboxes_display }}, {{ ms.free.messages_display }}, {{ ms.free.retention_display }} retention</td></tr>
-        <tr><td>Entry price</td><td>From $20/month, billed annually: 1 inbox with unlimited addresses, from 15,000 inbound emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>
-        <tr><td>Team plan</td><td>From $50/month, billed annually, with 5 seats (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.scale.name }} {{ ms.scale.price }}: {{ ms.scale.inboxes_display }}; team seats on {{ ms.business.name }} {{ ms.business.price }}</td></tr>
+        {% if ms.on_sale %}<tr><td>Entry price</td><td>From $20/month, billed annually: 1 inbox with unlimited addresses, from 15,000 inbound emails/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.pro.name }} {{ ms.pro.price }}: {{ ms.pro.inboxes_display }}, {{ ms.pro.messages_display }}</td></tr>{% endif %}
+        {% if ms.on_sale %}<tr><td>Team plan</td><td>From $50/month, billed annually, with 5 seats (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{{ ms.scale.name }} {{ ms.scale.price }}: {{ ms.scale.inboxes_display }}; team seats on {{ ms.business.name }} {{ ms.business.price }}</td></tr>{% endif %}
         <tr><td>Discount for paying yearly</td><td>✅ Save 20% (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Monthly only</td></tr>
         <tr><td>SMS testing</td><td>✅ Add-on from $37.50/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ Email only</td></tr>
         <tr><td>Email previews (Gmail, Outlook, mobile)</td><td>✅ Add-on from $25/month (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
-        <tr><td>Custom domains</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if ms.domains_plan %}✅ On the {{ ms.domains_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>Custom domains</td><td>✅ Yes (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>{% if not ms.on_sale %}Unavailable while paid plans are paused{% elif ms.domains_plan %}✅ On the {{ ms.domains_plan.name }} plan{% else %}❌ No{% endif %}</td></tr>
         <tr><td>Single Sign-On (SAML, OIDC)</td><td>✅ On Enterprise (<a href="{{ src.pricing }}" rel="noopener">source</a>)</td><td>❌ No</td></tr>
         <tr><td>Verification codes extracted automatically</td><td>✅ Yes (<a href="{{ src.codes }}" rel="noopener">source</a>)</td><td>✅ Yes, with a confidence score, every plan</td></tr>
         <tr><td>Wait until a message arrives</td><td>✅ The SDK <code>messages.get</code> call waits for a match, 10 seconds by default (<a href="{{ src.wait }}" rel="noopener">source</a>)</td><td>✅ The REST call <code>messages/wait</code> blocks up to {{ ms.wait_max }}s, from any language or tool, every plan; the SDKs repeat it for you</td></tr>
@@ -43,9 +43,9 @@
   <h2>When to choose mailsocket</h2>
   <ul class="docs-steps">
     <li>You only need email, and you want to start on a free plan with no trial clock.</li>
-    <li>You want month-to-month billing from {{ ms.pro.price }}.</li>
+    {% if ms.on_sale %}<li>You want month-to-month billing from {{ ms.pro.price }}.</li>{% else %}<li>You want to start with a free inbox plan; paid plans are paused.</li>{% endif %}
     <li>You want one REST call that blocks until the OTP or magic link arrives, from any language or tool, with or without an SDK.</li>
-    <li>You want new mail pushed to you: a Server-Sent Events stream on every plan{% if ms.webhooks_plan %}, and webhooks from the {{ ms.webhooks_plan.name }} plan{% endif %}.</li>
+    <li>You want new mail pushed to you: a Server-Sent Events stream on every plan{% if ms.on_sale and ms.webhooks_plan %}, and webhooks from the {{ ms.webhooks_plan.name }} plan{% endif %}.</li>
     <li>An AI agent needs an inbox: there is an MCP server, and an agent can get an API key without a signup form.</li>
   </ul>
 </section>
