@@ -2,7 +2,18 @@ from django.urls import path
 
 from apps.billing import views as billing_views
 
-from . import account_views, compare, demo, domain_views, instant, settings_views, team_views, views
+from . import (
+    account_views,
+    apikey_views,
+    compare,
+    demo,
+    domain_views,
+    instant,
+    settings_views,
+    team_views,
+    views,
+    webhook_views,
+)
 from .decorators import private_per_cookie
 from .redirects import slash_redirect
 
@@ -79,17 +90,29 @@ urlpatterns = [
     path("app/messages/<str:public_id>/reply/", views.message_reply, name="message-reply"),
     path("app/messages/<str:public_id>/forward/", views.message_forward, name="message-forward"),
     path("app/compose/", views.compose, name="compose"),
-    path("app/api-keys/", views.api_keys, name="api-keys"),
-    path("app/api-keys/create/", views.api_key_create, name="api-key-create"),
-    path("app/api-keys/onboarding/", views.onboarding_api_key_create, name="api-key-onboarding"),
-    path("app/api-keys/<str:public_id>/revoke/", views.api_key_revoke, name="api-key-revoke"),
-    path("app/webhooks/", views.webhooks, name="webhooks"),
-    path("app/inboxes/<str:public_id>/webhook/save/", views.webhook_save, name="webhook-save"),
-    path("app/inboxes/<str:public_id>/webhook/disable/", views.webhook_disable, name="webhook-disable"),
-    path("app/inboxes/<str:public_id>/webhook/rotate-secret/", views.webhook_rotate, name="webhook-rotate"),
-    path("app/inboxes/<str:public_id>/webhook/test/", views.webhook_test, name="webhook-test"),
-    path("app/inboxes/<str:public_id>/webhook/delete/", views.webhook_delete, name="webhook-delete"),
-    path("app/inboxes/<str:public_id>/webhook/deliveries/", views.webhook_deliveries, name="webhook-deliveries"),
+    path("app/api-keys/", apikey_views.api_keys, name="api-keys"),
+    path("app/api-keys/create/", apikey_views.api_key_create, name="api-key-create"),
+    path("app/api-keys/onboarding/", apikey_views.onboarding_api_key_create, name="api-key-onboarding"),
+    path("app/api-keys/<str:public_id>/revoke/", apikey_views.api_key_revoke, name="api-key-revoke"),
+    path("app/webhooks/", webhook_views.webhooks, name="webhooks"),
+    path("app/inboxes/<str:public_id>/webhook/save/", webhook_views.webhook_save, name="webhook-save"),
+    path(
+        "app/inboxes/<str:public_id>/webhook/disable/",
+        webhook_views.webhook_disable,
+        name="webhook-disable",
+    ),
+    path(
+        "app/inboxes/<str:public_id>/webhook/rotate-secret/",
+        webhook_views.webhook_rotate,
+        name="webhook-rotate",
+    ),
+    path("app/inboxes/<str:public_id>/webhook/test/", webhook_views.webhook_test, name="webhook-test"),
+    path("app/inboxes/<str:public_id>/webhook/delete/", webhook_views.webhook_delete, name="webhook-delete"),
+    path(
+        "app/inboxes/<str:public_id>/webhook/deliveries/",
+        webhook_views.webhook_deliveries,
+        name="webhook-deliveries",
+    ),
     #  (Team Seats). URLs are always REGISTERED (mirrors the
     # ENABLE_BYOD API pattern: routes exist so reverse() never breaks), but
     # every view is wrapped in team_views._teams_enabled, which raises

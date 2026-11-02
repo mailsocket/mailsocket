@@ -324,11 +324,19 @@ def test_server_marks_4xx_flash_and_list_partials_with_hx_partial_header():
 
 def test_every_dashboard_partial_render_goes_through_render_partial():
     """The HX-Partial marker is set centrally, so no view may bypass it."""
-    for name in ("views.py", "account_views.py", "domain_views.py", "team_views.py"):
+    for name in (
+        "views.py",
+        "account_views.py",
+        "domain_views.py",
+        "team_views.py",
+        "apikey_views.py",
+        "webhook_views.py",
+    ):
         source = (DASH / name).read_text()
         assert not re.search(r"(?<![_\w])render\(\s*request,\s*[\"']dashboard/partials/", source), name
-    views = (DASH / "views.py").read_text()
-    assert "response = render_partial(request, template, _webhook_page_context(" in views
+    views = (DASH / "webhook_views.py").read_text()
+    needle = "response = render_partial(\n        request,\n        template,\n        _webhook_page_context("
+    assert needle in views
 
 
 def test_render_partial_marks_only_4xx():
@@ -506,7 +514,7 @@ def _race_same_name(users, name, monkeypatch):
 
     from django.db import connection
 
-    from apps.dashboard import views as dashboard_views
+    from apps.dashboard import apikey_views as dashboard_views
 
     real_increment = dashboard_views.increment_rate_limit
 
