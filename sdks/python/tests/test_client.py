@@ -636,7 +636,7 @@ def test_metadata_consistency_across_files():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    expected = "0.3.1"
+    expected = "0.3.2"
 
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     assert pyproject["project"]["version"] == expected

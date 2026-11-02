@@ -151,6 +151,8 @@ consumers with `tsc --noEmit`.
 
 ## Changelog
 
+- **0.3.2** — docs only: README positions mailsocket as email testing for apps
+  you own or are authorized to test. No code change.
 - **0.3.1** — fix: a code arriving between two internal long-poll calls of
   `waitForOtp`/`waitForLink`/`wait` was missed. Without `options.since`, call 1
   still omits it; each later call sends the previous response's

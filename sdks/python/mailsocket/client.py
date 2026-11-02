@@ -357,7 +357,7 @@ class Client:
             url += "?" + urllib.parse.urlencode(params, doseq=True)
         headers = {
             "Accept": "application/json",
-            "User-Agent": "mailsocket-python/0.3.1",
+            "User-Agent": "mailsocket-python/0.3.2",
         }
         headers.update(self._extra_headers)
         # Set last so nothing in extra_headers can ever replace it.

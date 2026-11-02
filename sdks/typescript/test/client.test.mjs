@@ -366,7 +366,7 @@ test("metadata consistency: 0.3.1 matches package.json/package-lock/USER_AGENT",
   const path = await import("node:path");
 
   const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-  const expected = "0.3.1";
+  const expected = "0.3.2";
 
   const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
   assert.equal(pkg.version, expected);

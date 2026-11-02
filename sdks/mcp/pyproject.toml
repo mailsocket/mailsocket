@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mailsocket-mcp"
-version = "0.4.1"
+version = "0.4.2"
 description = "MCP server exposing mailsocket inboxes + wait-for-OTP to AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Communications :: Email",
 ]
 dependencies = [
-    "mailsocket>=0.3.1",  # published on PyPI as `mailsocket` (0.3.1: wait loop sends the server cursor; 0.3.0: Client.send_test_code; 0.2.0: since defaults to omitted — see CHANGELOG)
+    "mailsocket>=0.3.2",  # published on PyPI as `mailsocket` (0.3.2: docs only; 0.3.1: wait loop sends the server cursor; 0.3.0: Client.send_test_code; 0.2.0: since defaults to omitted — see CHANGELOG)
     "mcp>=2.0,<3.0",
 ]
 

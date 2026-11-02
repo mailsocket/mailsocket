@@ -1,11 +1,13 @@
 """Read-only 24-hour verification sender diversity signal, computed from retained messages."""
 
+import logging
 from collections import Counter, defaultdict
 from datetime import timedelta
 from email.utils import parseaddr
 from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Q
 from django.utils import timezone
 
@@ -16,9 +18,30 @@ from apps.ops import notify as ops_notify
 from .funnel import excluded_accounts_q
 from .models import Account
 
-# Deliberately small built-in suffix set: unknown multi-label public suffixes
+# Built-in set of common second-level public suffixes (no PSL dependency):
+# unknown multi-label suffixes fall back to the final label. This is a signal
 
-MULTI_SUFFIXES = frozenset({"co.uk", "com.au", "com.vn"})
+MULTI_SUFFIXES = frozenset(
+    {
+        "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk",
+        "com.au", "net.au", "org.au", "edu.au",
+        "co.nz", "org.nz",
+        "co.jp", "ne.jp", "or.jp", "ac.jp",
+        "com.br", "net.br", "org.br",
+        "com.mx", "com.ar",
+        "co.in", "net.in", "org.in",
+        "com.cn", "net.cn", "org.cn",
+        "com.hk", "com.sg", "com.tw",
+        "co.kr", "or.kr",
+        "co.za", "com.tr",
+        "com.vn", "net.vn", "org.vn", "edu.vn", "gov.vn",
+        "co.id", "com.my", "com.ph", "com.pk", "com.ua", "com.pl", "com.ru",
+    }
+)  # fmt: skip
+
+FLEET_CACHE_KEY = "fleet_many_senders"
+FLEET_CACHE_SECONDS = 300
+logger = logging.getLogger(__name__)
 
 
 def _valid_label(label):
@@ -143,6 +166,20 @@ def report(now=None, *, hours=24):
     return sorted(result, key=lambda row: (-row["distinct_senders"], row["account_id"]))
 
 
+def cached_tripped_rows(now):
+    """Tripped rows for the fleet page, cached 300 s; [] (logged) if the report raises."""
+    rows = cache.get(FLEET_CACHE_KEY)
+    if rows is not None:
+        return rows
+    try:
+        rows = [row for row in report(now) if row["tripped"]]
+    except Exception:
+        logger.exception("fleet sender diversity report failed")
+        return []
+    cache.set(FLEET_CACHE_KEY, rows, FLEET_CACHE_SECONDS)
+    return rows
+
+
 def _due(now):
     from .abuse_alerts import _claim
 
@@ -191,7 +228,10 @@ def send_alerts(now):
             from .abuse_alerts import _unclaim
 
             for kind, previous, _item in batch:
-                _unclaim(kind, now, previous)
+                try:
+                    _unclaim(kind, now, previous)
+                except Exception:
+                    logger.exception("sender diversity alert unclaim failed")
             continue
         delivered += 1
     return delivered

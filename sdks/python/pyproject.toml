@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mailsocket"
-version = "0.3.1"
+version = "0.3.2"
 description = "Official Python client for the mailsocket REST API — one line to wait for an OTP."
 readme = "README.md"
 requires-python = ">=3.9"

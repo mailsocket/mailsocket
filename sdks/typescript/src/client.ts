@@ -27,7 +27,7 @@ const WAIT_SOCKET_BUFFER_MS = 10_000;
 /** Default retry delay (ms) when a 429 carries no Retry-After header. */
 const DEFAULT_RETRY_AFTER_MS = 1_000;
 
-const USER_AGENT = "mailsocket-typescript/0.3.1";
+const USER_AGENT = "mailsocket-typescript/0.3.2";
 /** Response header with the cutoff a wait call actually used. */
 const WAIT_SINCE_HEADER = "mailsocket-wait-since";
 

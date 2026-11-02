@@ -564,14 +564,14 @@ def test_version_exported():
 
 
 def test_metadata_consistency_across_files():
-    """Versions match everywhere: MCP 0.4.1 (pyproject, server.json, __version__)
-    and its Python SDK sibling 0.3.1 (pyproject, __version__, user agent)."""
+    """Versions match everywhere: MCP 0.4.2 (pyproject, server.json, __version__)
+    and its Python SDK sibling 0.3.2 (pyproject, __version__, user agent)."""
     import tomllib
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    expected = "0.4.1"
-    expected_sdk = "0.3.1"
+    expected = "0.4.2"
+    expected_sdk = "0.3.2"
 
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     assert pyproject["project"]["version"] == expected

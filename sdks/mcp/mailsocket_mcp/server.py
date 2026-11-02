@@ -52,7 +52,7 @@ __all__ = [
 # Canonical version, re-exported as ``mailsocket_mcp.__version__`` (see
 # __init__.py). Defined here, not in __init__.py, because __init__.py imports
 # this module at package-load time and a circular self-import would break.
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 # The headline wait is bounded: an agent can request up to the transport's
 # ceiling as the overall deadline (clamped), though transport overhead can push

@@ -1,6 +1,6 @@
 {
     "name": "n8n-nodes-mailsocket",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "n8n community node for mailsocket — create test inboxes and block on the OTP / magic link.",
     "license": "MIT",
     "homepage": "https://mailsocket.app",

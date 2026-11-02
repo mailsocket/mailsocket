@@ -43,3 +43,11 @@ def _reset_api_auth_fail_memo():
     auth_failures._reset_memo()
     yield
     auth_failures._reset_memo()
+
+
+@pytest.fixture(autouse=True)
+def _reset_fleet_sender_cache():
+    """The fleet page caches tripped sender rows for 300 s in the shared locmem cache."""
+    from django.core.cache import cache
+
+    cache.delete("fleet_many_senders")

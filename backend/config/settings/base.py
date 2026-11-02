@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -502,18 +503,34 @@ ABUSE_DISTINCT_SENDERS_WARN = _positive_abuse_int(
 ABUSE_WATCHED_SENDERS_WARN = _positive_abuse_int(
     "ABUSE_WATCHED_SENDERS_WARN", os.environ.get("ABUSE_WATCHED_SENDERS_WARN", "3")
 )
-ABUSE_SENDER_ALLOWLIST = [
-    v.strip().lower() for v in os.environ.get("ABUSE_SENDER_ALLOWLIST", "").split(",") if v.strip()
-]
-ABUSE_WATCHED_SENDER_DOMAINS = [
-    v.strip().lower() for v in os.environ.get(
-        "ABUSE_WATCHED_SENDER_DOMAINS",
-        "google.com,accounts.google.com,facebookmail.com,instagram.com,x.com,twitter.com,"
-        "tiktok.com,discord.com,telegram.org,microsoft.com,live.com,apple.com,amazon.com,"
-        "netflix.com,spotify.com,paypal.com,openai.com,binance.com,coinbase.com,"
-        "steampowered.com,epicgames.com,uber.com,airbnb.com,shopee.vn,lazada.vn,tiki.vn,zalo.me",
-    ).split(",") if v.strip()
-]
+_ABUSE_HOST_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+def _abuse_domain_list(name: str, raw: str) -> list[str]:
+    items = [v.strip().lower() for v in raw.split(",") if v.strip()]
+    for item in items:
+        labels = item.split(".")
+        if len(labels) < 2 or not all(_ABUSE_HOST_LABEL.match(label) for label in labels):
+            raise ImproperlyConfigured(f"{name} has an invalid hostname entry: {item!r}")
+    return items
+
+
+ABUSE_SENDER_ALLOWLIST = _abuse_domain_list(
+    "ABUSE_SENDER_ALLOWLIST", os.environ.get("ABUSE_SENDER_ALLOWLIST", "")
+)
+_ABUSE_WATCHED_DEFAULT = (
+    "google.com,accounts.google.com,facebookmail.com,instagram.com,x.com,twitter.com,"
+    "tiktok.com,discord.com,telegram.org,microsoft.com,live.com,apple.com,amazon.com,"
+    "netflix.com,spotify.com,paypal.com,openai.com,binance.com,coinbase.com,"
+    "steampowered.com,epicgames.com,uber.com,airbnb.com,shopee.vn,lazada.vn,tiki.vn,zalo.me"
+)
+_abuse_watched_raw = os.environ.get("ABUSE_WATCHED_SENDER_DOMAINS")
+ABUSE_WATCHED_SENDER_DOMAINS = _abuse_domain_list(
+    "ABUSE_WATCHED_SENDER_DOMAINS",
+    _ABUSE_WATCHED_DEFAULT if _abuse_watched_raw is None else _abuse_watched_raw,
+)
+if _abuse_watched_raw is not None and not ABUSE_WATCHED_SENDER_DOMAINS:
+    raise ImproperlyConfigured("ABUSE_WATCHED_SENDER_DOMAINS is set but contains no domains")
 
 
 # switch. Default False: apps.outbound models exist and migrations apply,

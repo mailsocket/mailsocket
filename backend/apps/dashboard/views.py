@@ -2763,7 +2763,7 @@ def _staff_only_404(view):
 @_staff_only_404
 @require_GET
 def fleet(request):
-    from apps.accounts.abuse_senders import report as sender_report
+    from apps.accounts.abuse_senders import cached_tripped_rows
 
     now = timezone.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -2811,7 +2811,7 @@ def fleet(request):
         ),
         "plan_rows": plan_rows,
         "top_users": top_users,
-        "many_senders": [row for row in sender_report(now) if row["tripped"]],
+        "many_senders": cached_tripped_rows(now),
         **_wait_capacity_panel(now),
         **_open_feedback_panel(),
     }

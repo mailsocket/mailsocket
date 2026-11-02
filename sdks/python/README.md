@@ -136,6 +136,8 @@ invalid id never reaches the network.
 
 ## Changelog
 
+- **0.3.2** — docs only: README positions mailsocket as email testing for apps
+  you own or are authorized to test. No code change.
 - **0.3.1** — the `wait*` helpers no longer miss a message that lands between
   two long-poll calls. When you pass no `since`, the first call still omits it
   (the server uses the request start), and every following call sends the

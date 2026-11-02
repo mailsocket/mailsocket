@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Wording only: node and README describe test inboxes for apps you own or are authorized to test. No behaviour change.
+
 ## 0.2.0
 
 - New operation **Inbox → Send Test Code** (`POST /inboxes/{id}/test-code`): puts one sample OTP email into the inbox without going through the mail server, so you can try a Wait for OTP without real email. Returns `message_id` and `sent_at`. Limited to 5 per inbox and 20 per account per hour.
